@@ -1,0 +1,22 @@
+# Base for the placeholder workload (mcp-platform-azure issue #110 task 9).
+# Deliberately a single base with no overlay: there is one deployment
+# target for this proof, so an overlay directory would add a layer with
+# nothing to vary between environments.
+#
+# The two REPLACE_ME placeholders in deployment.yaml and
+# serviceaccount.yaml are substituted from outside this file, not by
+# editing it per deploy:
+#   - the image is overridden via the Argo CD Application's
+#     spec.source.kustomize.images (see argocd/apps/mcp-platform-demo.yaml)
+#   - the ServiceAccount's client-id annotation has no Kustomize-native
+#     override and is substituted directly; see README.md.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - deployment.yaml
+  - service.yaml
+  - gateway.yaml
+  - httproute.yaml

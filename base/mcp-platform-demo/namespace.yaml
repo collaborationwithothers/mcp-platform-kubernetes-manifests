@@ -1,0 +1,15 @@
+# Namespace for the placeholder workload that proves the AKS platform chain
+# works end to end: registry pull, Argo CD sync, Gateway API routing, the
+# pinned ingress IP, and the APIM outbound path. See
+# collaborationwithothers/mcp-platform-azure issue #110, task 9.
+#
+# The name must stay "mcp-platform-demo": it is also the Terraform default
+# for infra/terraform/scenarios/s1-aks-platform's placeholder_namespace
+# variable in the mcp-platform-azure repo, and the workload identity
+# federated credential subject
+# (system:serviceaccount:mcp-platform-demo:mcp-platform-placeholder) is
+# built from it. Renaming here without renaming there breaks the federation.
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: mcp-platform-demo

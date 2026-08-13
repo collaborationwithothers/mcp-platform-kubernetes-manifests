@@ -1,0 +1,59 @@
+# The placeholder workload itself. It runs no application logic -- the real
+# MCP server rewrite is a separate, later child (b2, issue #115). This
+# Deployment exists only to be pulled from the registry, started, and
+# reached through the gateway, proving the platform chain works.
+#
+# image: REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder:REPLACE_ME_GIT_SHA
+# is a placeholder, not a real reference. The real image is built by an
+# image-build workflow in mcp-platform-azure (issue #110 task 9, not yet
+# written as of this PR): it pulls a small, well-known public image --
+# docker.io/library/nginx:1.27.4-alpine, pinned to an exact tag, never
+# :latest -- and retags it into this platform's own Azure Container
+# Registry, tagged by the git commit SHA of the mcp-platform-azure push
+# that built it. Two placeholders are substituted together:
+#   - REPLACE_ME_ACR_LOGIN_SERVER: the registry's login server hostname,
+#     the "registry_login_server" Terraform output in mcp-platform-azure.
+#   - REPLACE_ME_GIT_SHA: the commit SHA the image-build workflow tagged.
+# The simplest correct substitution point is the Argo CD Application's
+# spec.source.kustomize.images override (see
+# argocd/apps/mcp-platform-demo.yaml) -- Argo CD supports overriding a
+# Kustomize base's image references from the Application object itself, so
+# the real values live in the pointer, not by editing this file per
+# deploy. No image pull secret is set: the cluster pulls by the AcrPull
+# role assignment on its kubelet identity (mcp-platform-azure issue #110
+# section 2, "Images are pulled with an explicit AcrPull role assignment").
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-platform-placeholder
+  namespace: mcp-platform-demo
+  labels:
+    app: mcp-platform-placeholder
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: mcp-platform-placeholder
+  template:
+    metadata:
+      labels:
+        app: mcp-platform-placeholder
+        # Required for the pod to use workload identity federation; without
+        # this label the mutating webhook does not project the federated
+        # token volume into the pod, and the token exchange never happens.
+        azure.workload.identity/use: "true"
+    spec:
+      serviceAccountName: mcp-platform-placeholder
+      containers:
+        - name: mcp-platform-placeholder
+          image: REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder:REPLACE_ME_GIT_SHA
+          ports:
+            - name: http
+              containerPort: 80
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
