@@ -1,6 +1,7 @@
 # ClusterIP Service in front of the placeholder Deployment. Cluster-internal
-# only: the HTTPRoute in httproute.yaml is what the Istio ingress gateway
-# routes to, this Service is just the stable target it routes through.
+# only: the VirtualService in virtualservice.yaml is what the Istio ingress
+# gateway routes to, this Service is just the stable target it routes
+# through.
 apiVersion: v1
 kind: Service
 metadata:

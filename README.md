@@ -17,10 +17,10 @@ things issue #110 set out to prove.
 
 A single placeholder workload, not a real application. Its only job is to
 prove the platform chain works: an image gets pulled from the registry, Argo
-CD syncs it, the Kubernetes Gateway API routes to it through the Istio
-ingress gateway, that gateway answers on its pinned private IP, and APIM can
-reach it over the private network path. The real MCP server rewrite is a
-later, separate piece of work
+CD syncs it, Istio's own Gateway/VirtualService API routes to it through the
+Istio ingress gateway, that gateway answers on its pinned private IP, and
+APIM can reach it over the private network path. The real MCP server
+rewrite is a later, separate piece of work
 ([mcp-platform-azure issue #115](https://github.com/collaborationwithothers/mcp-platform-azure/issues/115)).
 
 ```
@@ -29,7 +29,7 @@ argocd/apps/mcp-platform-demo.yaml   Argo CD Application for the placeholder,
                                       Application in mcp-platform-azure's
                                       infra/argocd/bootstrap-app-of-apps.yaml
 base/mcp-platform-demo/              Kustomize base: Namespace, ServiceAccount,
-                                      Deployment, Service, Gateway, HTTPRoute
+                                      Deployment, Service, Gateway, VirtualService
 ```
 
 `argocd/apps` is the directory the root Application points at
@@ -87,28 +87,30 @@ identity, not by a stored password. They are placeholders because the real
 values do not exist until infrastructure that lives in a different repo has
 actually run.
 
-## Verification gap: which gateway the pinned IP actually serves
+## Why Istio's own Gateway/VirtualService, not the Kubernetes Gateway API
 
-`base/mcp-platform-demo/gateway.yaml` uses `gatewayClassName: istio`. That
-value is verified against Microsoft Learn
-(`learn.microsoft.com/azure/aks/istio-gateway-api`, checked 2026-08-13): it
-is the GatewayClass the AKS Istio add-on's Gateway API automated deployment
-model registers, distinct from `approuting-istio`, which belongs to a
-different, disabled add-on.
+`base/mcp-platform-demo/gateway.yaml` originally used
+`gateway.networking.k8s.io` (`gatewayClassName: istio`), the Kubernetes
+Gateway API standard. That left an open verification gap: Microsoft's docs
+describe the AKS Istio add-on's Gateway API path as an "automated deployment
+model" that provisions a NEW, separate proxy Deployment and Service per
+`Gateway` object, distinct from the persistent, cluster-level ingress
+gateway component mcp-platform-azure's Terraform configures
+(`service_mesh_profile.istio.components.ingress_gateways`) and pins to a
+fixed private IP (`aks-istio-ingressgateway-internal-<revision>` in the
+`aks-istio-ingress` namespace, annotated by `deploy-aks-platform.yml`).
+Whether that Gateway object would have bound to the already-pinned
+component gateway, or caused Istio to stand up a second, unpinned one, was
+never confirmed.
 
-What is not verified: mcp-platform-azure's Terraform pins the ingress
-gateway's private IP onto the Service belonging to a persistent,
-cluster-level ingress gateway component
-(`aks-istio-ingressgateway-internal-<revision>` in the `aks-istio-ingress`
-namespace, set up via `service_mesh_profile.istio.components.ingress_gateways`
-and annotated by the `deploy-and-bootstrap` workflow). Microsoft's own docs
-describe the Gateway API automated deployment model as provisioning a
-separate, new proxy Deployment and Service per `Gateway` object it
-reconciles. Whether the `Gateway` in this repo binds to the already-pinned
-component gateway, or causes Istio to stand up a second, unpinned one, was
-not confirmed in this pass. Check this against a live cluster, or a closer
-reading of the Istio add-on's Gateway API binding behaviour, before relying
-on the pinned IP being reachable through this `Gateway`.
+`gateway.yaml` and `virtualservice.yaml` now use Istio's own
+`networking.istio.io` API instead (mcp-platform-azure ADR-010, "Ingress
+uses Istio's own API, not the Kubernetes Gateway API standard"), with
+`selector: istio: aks-istio-ingressgateway-internal` -- verified against
+Microsoft Learn (`learn.microsoft.com/azure/aks/istio-deploy-ingress`,
+checked 2026-08-13) as the label the add-on's internal ingress gateway pods
+themselves carry. This binds directly to the pinned component gateway; there
+is no second, ambiguous gateway object in this design.
 
 ## Style
 
