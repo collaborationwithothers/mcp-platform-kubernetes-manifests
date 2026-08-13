@@ -1,0 +1,1 @@
+# mcp-platform-kubernetes-manifests
