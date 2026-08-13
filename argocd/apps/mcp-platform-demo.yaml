@@ -1,0 +1,44 @@
+# Child Application under the app-of-apps pattern. The root Application
+# (mcp-platform-azure's infra/argocd/bootstrap-app-of-apps.yaml) points its
+# spec.source.path at argocd/apps in THIS repo and reconciles everything it
+# finds there, including this file -- so this Application is itself
+# deployed by Argo CD, not applied by hand. Its own spec.source then points
+# at base/mcp-platform-demo, the placeholder workload (issue #110 task 9).
+#
+# spec.source.kustomize.images is the substitution point for the real
+# container image: it overrides the Kustomize base's placeholder image
+# reference (base/mcp-platform-demo/deployment.yaml) without editing that
+# file per deploy. As committed, it names the same REPLACE_ME placeholders
+# the base file uses, so this Application resolves to nothing live until a
+# human or a workflow step sets these to the real registry login server
+# (the "registry_login_server" Terraform output in mcp-platform-azure) and
+# the real git-commit-SHA tag the image-build workflow pushed. See
+# README.md, "Placeholder values a human must fill in".
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mcp-platform-demo
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/collaborationwithothers/mcp-platform-kubernetes-manifests.git
+    targetRevision: main
+    path: base/mcp-platform-demo
+    kustomize:
+      images:
+        - REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder=REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder:REPLACE_ME_GIT_SHA
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: mcp-platform-demo
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

@@ -1,0 +1,35 @@
+# Istio's own Gateway API (networking.istio.io), not the Kubernetes Gateway
+# API standard (mcp-platform-azure ADR-010, "Ingress uses Istio's own API,
+# not the Kubernetes Gateway API standard"). An earlier version of this
+# manifest used gateway.networking.k8s.io with gatewayClassName: istio,
+# which Microsoft's own docs describe as triggering the Istio add-on's
+# "automated deployment model" -- a NEW proxy Deployment/Service per Gateway
+# object, separate from the persistent ingress gateway component
+# mcp-aks-host's Terraform configures and deploy-aks-platform.yml pins to a
+# fixed private IP. That left an open verification gap: whether this
+# repo's traffic would reach the pinned gateway or an unpinned second one.
+#
+# selector: istio: aks-istio-ingressgateway-internal is verified against
+# Microsoft Learn (learn.microsoft.com/azure/aks/istio-deploy-ingress,
+# checked 2026-08-13): it is the label the AKS Istio add-on's internal
+# ingress gateway pods carry, matching the persistent ingress gateway
+# component directly -- the same one whose Service
+# (aks-istio-ingressgateway-internal-<revision> in the aks-istio-ingress
+# namespace) deploy-aks-platform.yml pins to a fixed private IP. There is no
+# second gateway object to disambiguate; this binds to the pinned one by
+# construction.
+apiVersion: networking.istio.io/v1beta1
+kind: Gateway
+metadata:
+  name: mcp-platform-placeholder
+  namespace: mcp-platform-demo
+spec:
+  selector:
+    istio: aks-istio-ingressgateway-internal
+  servers:
+    - port:
+        number: 80
+        name: http
+        protocol: HTTP
+      hosts:
+        - "*"

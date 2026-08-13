@@ -1,0 +1,24 @@
+# Routes all traffic the Gateway accepts to the placeholder Service. Kept
+# deliberately trivial -- one path match, one backend -- because this
+# workload's only job is to prove the routing path works, per issue #110.
+# Istio's own VirtualService (networking.istio.io), matching gateway.yaml;
+# see that file for why this is not a Kubernetes Gateway API HTTPRoute.
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: mcp-platform-placeholder
+  namespace: mcp-platform-demo
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - mcp-platform-placeholder
+  http:
+    - match:
+        - uri:
+            prefix: /
+      route:
+        - destination:
+            host: mcp-platform-placeholder
+            port:
+              number: 80
