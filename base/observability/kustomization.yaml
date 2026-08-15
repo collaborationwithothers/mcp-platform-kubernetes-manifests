@@ -1,0 +1,9 @@
+# Platform scrape configuration. The managed Prometheus add-on installs the
+# ServiceMonitor CRD before this path is promoted to main. See issue 124 in
+# mcp-platform-azure for the deployment order and live verification contract.
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ama-metrics-settings-configmap.yaml
+  - argocd-service-monitors.yaml

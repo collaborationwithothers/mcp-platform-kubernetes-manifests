@@ -1,0 +1,70 @@
+# These target only the Argo CD controller, repository server, and API server.
+# The 60-second interval and metric keep list are intentional ingestion bounds.
+apiVersion: azmonitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-argocd-controller-metrics
+  namespace: kube-system
+spec:
+  labelLimit: 63
+  labelNameLengthLimit: 511
+  labelValueLengthLimit: 1023
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-metrics
+  namespaceSelector:
+    matchNames:
+      - argocd
+  endpoints:
+    - port: metrics
+      interval: 60s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          action: keep
+          regex: "up|argocd_app_info|argocd_app_condition|argocd_app_reconcile_(bucket|count|sum)|argocd_app_sync_total"
+---
+apiVersion: azmonitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-argocd-repo-server-metrics
+  namespace: kube-system
+spec:
+  labelLimit: 63
+  labelNameLengthLimit: 511
+  labelValueLengthLimit: 1023
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-repo-server
+  namespaceSelector:
+    matchNames:
+      - argocd
+  endpoints:
+    - port: metrics
+      interval: 60s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          action: keep
+          regex: "up|argocd_git_request_total|argocd_git_fetch_fail_total|argocd_git_request_duration_seconds_(bucket|count|sum)"
+---
+apiVersion: azmonitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-argocd-api-server-metrics
+  namespace: kube-system
+spec:
+  labelLimit: 63
+  labelNameLengthLimit: 511
+  labelValueLengthLimit: 1023
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: argocd-server-metrics
+  namespaceSelector:
+    matchNames:
+      - argocd
+  endpoints:
+    - port: metrics
+      interval: 60s
+      metricRelabelings:
+        - sourceLabels: [__name__]
+          action: keep
+          regex: "up|grpc_server_handled_total"
