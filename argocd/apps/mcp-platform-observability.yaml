@@ -1,0 +1,29 @@
+# Child Application for platform observability. The root app-of-apps
+# Application reconciles this resource from argocd/apps. Keeping the scrape
+# configuration here lets Argo CD repair drift instead of depending on a
+# bootstrap workflow to reapply it.
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: mcp-platform-observability
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+
+  source:
+    repoURL: https://github.com/collaborationwithothers/mcp-platform-kubernetes-manifests.git
+    targetRevision: main
+    path: base/observability
+
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kube-system
+
+  syncPolicy:
+    automated:
+      prune: true
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=false

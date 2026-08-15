@@ -1,0 +1,20 @@
+# Azure Monitor managed Prometheus configuration. The AKS add-on reads this
+# ConfigMap. It retains the minimal ingestion profile and enables annotation
+# scraping only for AKS-managed Istio namespaces.
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ama-metrics-settings-configmap
+  namespace: kube-system
+data:
+  schema-version: v2
+  config-version: v1
+  cluster-metrics: |-
+    minimal-ingestion-profile: |-
+      enabled = true
+    pod-annotation-based-scraping: |-
+      podannotationnamespaceregex = "aks-istio-system|aks-istio-ingress"
+    default-targets-scrape-interval-settings: |-
+      podannotations = "60s"
+    default-targets-metrics-keep-list: |-
+      podannotations = "up|pilot_info|pilot_total_xds_internal_errors|pilot_total_xds_rejects|pilot_total_rejected_configs|pilot_proxy_convergence_time_(bucket|count|sum)|istio_requests_total|istio_request_duration_milliseconds_(bucket|count|sum)"
