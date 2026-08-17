@@ -1,6 +1,9 @@
 name: Promote AKS placeholder image
 
 on:
+  repository_dispatch:
+    types:
+      - aks-placeholder-image-promoted
   workflow_dispatch:
     inputs:
       image_reference:
@@ -24,8 +27,9 @@ jobs:
       group: aks-placeholder-image-promotion
       cancel-in-progress: false
     env:
-      IMAGE_REFERENCE: ${{ inputs.image_reference }}
-      WORKLOAD_IDENTITY_CLIENT_ID: ${{ inputs.workload_identity_client_id }}
+      IMAGE_REFERENCE: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.image_reference || inputs.image_reference }}
+      WORKLOAD_IDENTITY_CLIENT_ID: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.workload_identity_client_id || inputs.workload_identity_client_id }}
+      SOURCE_COMMIT: ${{ github.event_name == 'repository_dispatch' && github.event.client_payload.source_commit || '' }}
     steps:
       - name: Check out main
         uses: actions/checkout@v4
@@ -44,6 +48,16 @@ jobs:
           if ! [[ "${WORKLOAD_IDENTITY_CLIENT_ID}" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
             echo "::error::workload_identity_client_id must be a UUID."
             exit 1
+          fi
+          if [ "${GITHUB_EVENT_NAME}" = "repository_dispatch" ]; then
+            if ! [[ "${SOURCE_COMMIT}" =~ ^[0-9a-f]{40}$ ]]; then
+              echo "::error::repository_dispatch source_commit must be a 40-character commit SHA."
+              exit 1
+            fi
+            if [ "${IMAGE_REFERENCE##*:}" != "${SOURCE_COMMIT}" ]; then
+              echo "::error::repository_dispatch image tag must equal source_commit."
+              exit 1
+            fi
           fi
 
       - name: Update the GitOps source
