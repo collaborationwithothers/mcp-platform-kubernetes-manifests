@@ -25,5 +25,14 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    # The managed Prometheus add-on installs the ServiceMonitor CRD. Retry
+    # until that dependency exists. This prevents a failed first reconciliation
+    # from leaving this GitOps-owned application permanently OutOfSync.
+    retry:
+      limit: -1
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
     syncOptions:
       - CreateNamespace=false
