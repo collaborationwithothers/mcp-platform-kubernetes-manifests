@@ -1,0 +1,117 @@
+name: Promote AKS placeholder image
+
+on:
+  workflow_dispatch:
+    inputs:
+      image_reference:
+        description: "Immutable ACR image reference emitted by Build AKS placeholder image."
+        required: true
+        type: string
+      workload_identity_client_id:
+        description: "Client ID emitted by Deploy AKS platform. This is not a secret."
+        required: true
+        type: string
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  promote:
+    name: promote
+    runs-on: ubuntu-latest
+    concurrency:
+      group: aks-placeholder-image-promotion
+      cancel-in-progress: false
+    env:
+      IMAGE_REFERENCE: ${{ inputs.image_reference }}
+      WORKLOAD_IDENTITY_CLIENT_ID: ${{ inputs.workload_identity_client_id }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate promotion inputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          if ! [[ "${IMAGE_REFERENCE}" =~ ^[a-z0-9][a-z0-9.-]*\.azurecr\.io/mcp-platform-placeholder:[0-9a-f]{40}$ ]]; then
+            echo "::error::image_reference must be a lowercase ACR reference for mcp-platform-placeholder tagged with a 40-character commit SHA."
+            exit 1
+          fi
+          if ! [[ "${WORKLOAD_IDENTITY_CLIENT_ID}" =~ ^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{12}$ ]]; then
+            echo "::error::workload_identity_client_id must be a UUID."
+            exit 1
+          fi
+
+      - name: Update the GitOps source
+        id: update
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="codex/issue-110-placeholder-image-${IMAGE_REFERENCE##*:}"
+
+          if git ls-remote --exit-code --heads origin "refs/heads/${branch}" >/dev/null; then
+            git fetch origin "${branch}"
+            git switch --track "origin/${branch}"
+          else
+            git switch -c "${branch}"
+          fi
+
+          application_file="argocd/apps/mcp-platform-demo.yaml"
+          service_account_file="base/mcp-platform-demo/serviceaccount.yaml"
+
+          if ! grep -Eq '^[[:space:]]*-[[:space:]]*REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder=' "${application_file}"; then
+            echo "::error::Expected the placeholder image mapping in ${application_file}."
+            exit 1
+          fi
+
+          perl -0pi -e 's{^(\s*-\s*REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder=).*$}{$1$ENV{IMAGE_REFERENCE}}m' "${application_file}"
+          perl -0pi -e 's{^(\s*azure\.workload\.identity/client-id:\s*).*$}{$1"$ENV{WORKLOAD_IDENTITY_CLIENT_ID}"}m' "${service_account_file}"
+
+          ./scripts/validate-placeholder-promotion.sh
+          git diff --check
+
+          if git diff --quiet; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add "${application_file}" "${service_account_file}"
+          git commit -m "Promote AKS placeholder image ${IMAGE_REFERENCE##*:}"
+          git push --set-upstream origin "${branch}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Open or report the promotion PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CHANGED: ${{ steps.update.outputs.changed }}
+          BRANCH: ${{ steps.update.outputs.branch }}
+        run: |
+          set -euo pipefail
+          existing_pr="$(gh pr list --state open --head "${BRANCH}" --json url --jq '.[0].url')"
+
+          if [ -n "${existing_pr}" ]; then
+            echo "Promotion PR: ${existing_pr}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          if [ "${CHANGED}" = "false" ]; then
+            echo "The requested placeholder values are already committed to main." >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          pr_url="$(gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --draft \
+            --title "Promote AKS placeholder image ${IMAGE_REFERENCE##*:}" \
+            --body $'Refs collaborationwithothers/mcp-platform-azure#110.\n\nThis generated change promotes the immutable image reference and workload identity client ID into the Argo CD source. Review and merge this PR before expecting Argo CD to deploy the workload.')"
+          echo "Promotion PR: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
