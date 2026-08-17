@@ -30,7 +30,7 @@ spec:
     path: base/mcp-platform-demo
     kustomize:
       images:
-        - REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder=acrmcpaksplatform.azurecr.io/mcp-platform-placeholder:f65b1e3796b031dbb7eca0f789db3d90da6a01fe
+        - REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder=acrmcpaksplatform.azurecr.io/mcp-platform-placeholder:2b0e713d0b4f0911dd270a1f051fa89d4894e23d
 
   destination:
     server: https://kubernetes.default.svc
