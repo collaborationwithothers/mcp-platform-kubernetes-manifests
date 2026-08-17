@@ -46,39 +46,29 @@ credential's subject is built from
 `system:serviceaccount:<namespace>:<serviceaccount>`. A mismatch here breaks
 the pod's ability to get an Azure AD token with no stored secret.
 
-## Placeholder values a human must fill in
+## Promote the placeholder workload
 
-This repo cannot hold real values for two things, because they only exist
-after a live `terraform apply` in mcp-platform-azure, and one of them
-(the container image tag) is decided by a workflow in that repo that does
-not exist yet:
+The workload needs two values that appear only after the platform is built.
+Neither is a secret. Do not edit the YAML files by hand.
 
-1. **The ServiceAccount's workload identity client id**
-   (`base/mcp-platform-demo/serviceaccount.yaml`,
-   `azure.workload.identity/client-id: "REPLACE_ME_CLIENT_ID"`). The real
-   value is the `placeholder_workload_client_id` Terraform output in
-   mcp-platform-azure. There is no Kustomize-native override for a bare
-   annotation value the way there is for images, so this has to be
-   substituted directly -- either by hand, or by a step added to
-   mcp-platform-azure's `deploy-and-bootstrap` workflow after
-   `terraform apply` (that workflow does not currently patch this
-   annotation; adding that step is unfinished work, not something this PR
-   assumes exists).
+1. Run **Deploy AKS platform** with `bootstrap`. Its job summary reports the
+   workload identity client ID.
+2. Run **Build AKS placeholder image** in mcp-platform-azure. Its job summary
+   reports an immutable ACR image reference tagged with that workflow's commit
+   SHA.
+3. Run this repository's **Promote AKS placeholder image** workflow with both
+   values. It rejects malformed values, updates the Argo CD image mapping and
+   ServiceAccount annotation on a branch, renders the Kustomize base, and opens
+   a draft PR.
+4. Review and merge that PR. Argo CD then reconciles the committed image
+   reference. The placeholder should pull through the cluster's `AcrPull` role
+   assignment, not an image pull secret.
 
-2. **The container image** (`base/mcp-platform-demo/deployment.yaml`,
-   `REPLACE_ME_ACR_LOGIN_SERVER/mcp-platform-placeholder:REPLACE_ME_GIT_SHA`).
-   The real image is a small, well-known public image --
-   `docker.io/library/nginx:1.27.4-alpine`, pinned to an exact tag, never
-   `:latest` -- retagged into this platform's own Azure Container Registry
-   by an image-build workflow in mcp-platform-azure (issue #110 task 9,
-   also not written yet), tagged by the git commit SHA of the push that
-   built it. Unlike the client id, this one has a Kustomize-native
-   substitution point: `argocd/apps/mcp-platform-demo.yaml`'s
-   `spec.source.kustomize.images` overrides the base's image reference
-   without editing `base/mcp-platform-demo/deployment.yaml`. As committed,
-   that override still names the same placeholders, so nothing pulls a real
-   image until both are set to the registry's login server (the
-   `registry_login_server` Terraform output) and the real tag.
+The promotion source is `argocd/apps/mcp-platform-demo.yaml`. It maps the base
+image placeholder to the immutable image reference without editing the base
+Deployment for each image. The ServiceAccount annotation is updated in
+`base/mcp-platform-demo/serviceaccount.yaml` because that annotation has no
+Kustomize image-style substitution.
 
 Neither placeholder is a secret. A client id and a registry hostname are not
 credentials by themselves, and no image pull secret exists anywhere in this
