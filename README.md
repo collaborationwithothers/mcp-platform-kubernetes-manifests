@@ -48,21 +48,20 @@ the pod's ability to get an Azure AD token with no stored secret.
 
 ## Promote the placeholder workload
 
-The workload needs two values that appear only after the platform is built.
-Neither is a secret. Do not edit the YAML files by hand.
+Run **Deploy AKS platform** with `bootstrap`, then run **Build AKS placeholder
+image** in mcp-platform-azure. The image workflow reads the workload identity
+client ID from the AKS Terraform state. It sends that value and the immutable
+image reference to this workflow with `repository_dispatch`. Do not copy them
+between workflows.
 
-1. Run **Deploy AKS platform** with `bootstrap`. Its job summary reports the
-   workload identity client ID.
-2. Run **Build AKS placeholder image** in mcp-platform-azure. Its job summary
-   reports an immutable ACR image reference tagged with that workflow's commit
-   SHA.
-3. Run this repository's **Promote AKS placeholder image** workflow with both
-   values. It rejects malformed values, updates the Argo CD image mapping and
-   ServiceAccount annotation on a branch, renders the Kustomize base, and opens
-   a draft PR.
-4. Review and merge that PR. Argo CD then reconciles the committed image
-   reference. The placeholder should pull through the cluster's `AcrPull` role
-   assignment, not an image pull secret.
+This workflow rejects malformed or mismatched values, updates the Argo CD image
+mapping and ServiceAccount annotation on a branch, renders the Kustomize base,
+and opens a draft PR. Review and merge that PR. Argo CD then reconciles the
+committed image reference. The placeholder pulls through the cluster's `AcrPull`
+role assignment, not an image pull secret.
+
+`workflow_dispatch` remains available only as a recovery path. Use it when
+replaying a known image promotion, not as the normal workflow.
 
 The promotion source is `argocd/apps/mcp-platform-demo.yaml`. It maps the base
 image placeholder to the immutable image reference without editing the base
