@@ -16,7 +16,7 @@ spec:
     matchNames:
       - argocd
   endpoints:
-    - port: metrics
+    - port: http-metrics
       interval: 60s
       metricRelabelings:
         - sourceLabels: [__name__]
@@ -34,12 +34,12 @@ spec:
   labelValueLengthLimit: 1023
   selector:
     matchLabels:
-      app.kubernetes.io/name: argocd-repo-server
+      app.kubernetes.io/name: argocd-repo-server-metrics
   namespaceSelector:
     matchNames:
       - argocd
   endpoints:
-    - port: metrics
+    - port: http-metrics
       interval: 60s
       metricRelabelings:
         - sourceLabels: [__name__]
@@ -62,7 +62,7 @@ spec:
     matchNames:
       - argocd
   endpoints:
-    - port: metrics
+    - port: http-metrics
       interval: 60s
       metricRelabelings:
         - sourceLabels: [__name__]
