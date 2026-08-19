@@ -51,7 +51,8 @@ The MCP workload lands through three separate changes:
 
 1. The implementation PR owned by
    [issue #150](https://github.com/collaborationwithothers/mcp-platform-azure/issues/150)
-   adds the inactive base and promotion receiver.
+   adds MCP manifests and a workflow that validates the image, identity, and application settings before
+   opening a PR. Argo CD deploys the manifests only after that PR adds an Application.
 2. The generated PR owned by
    [issue #152](https://github.com/collaborationwithothers/mcp-platform-azure/issues/152)
    fills the non-secret values and adds the Argo CD Application.

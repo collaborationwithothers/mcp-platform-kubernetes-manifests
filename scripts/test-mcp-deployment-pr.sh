@@ -7,7 +7,7 @@ cd "${repo_root}"
 
 source_commit="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 image_reference="example.azurecr.io/mcp-tools-aspnetcore:${source_commit}"
-promotion_script="${repo_root}/scripts/promote-mcp-workload.sh"
+deployment_script="${repo_root}/scripts/promote-mcp-workload.sh"
 workload_client_id="11111111-1111-1111-1111-111111111111"
 istio_revision="asm-1-29"
 server_client_id="22222222-2222-2222-2222-222222222222"
@@ -17,7 +17,7 @@ downstream_scope="api://orders-api/user_impersonation"
 downstream_application_scope="api://orders-api/.default"
 deployment_issue="152"
 
-run_promotion() {
+run_deployment_script() {
   env \
     SOURCE_COMMIT="${source_commit}" \
     IMAGE_REFERENCE="${image_reference}" \
@@ -29,7 +29,7 @@ run_promotion() {
     DOWNSTREAM_SCOPE="${downstream_scope}" \
     DOWNSTREAM_APPLICATION_SCOPE="${downstream_application_scope}" \
     DEPLOYMENT_ISSUE="${deployment_issue}" \
-    "${promotion_script}" "$@"
+    "${deployment_script}" "$@"
 }
 
 kubectl kustomize base/mcp-platform-mcp >/dev/null
@@ -45,21 +45,21 @@ git diff --exit-code origin/main -- \
 
 workflow=".github/workflows/promote-mcp-server-image.yml"
 if [ ! -f "${workflow}" ]; then
-  echo "The MCP repository-dispatch receiver is missing." >&2
+  echo "The MCP deployment workflow is missing." >&2
   exit 1
 fi
 if ! grep -q 'mcp-server-gitops-promotion-requested' "${workflow}"; then
-  echo "The receiver does not use the agreed repository-dispatch event." >&2
+  echo "The workflow does not use the agreed repository-dispatch event." >&2
   exit 1
 fi
 validation_line="$(grep -n 'validate-inputs' "${workflow}" | head -1 | cut -d: -f1)"
 branch_line="$(grep -n 'git switch' "${workflow}" | head -1 | cut -d: -f1)"
 if [ "${validation_line}" -ge "${branch_line}" ]; then
-  echo "Promotion inputs must be validated before changing a branch." >&2
+  echo "Workflow inputs must be validated before changing a branch." >&2
   exit 1
 fi
 if grep -Eq 'TENANT_ID:.*client_payload' "${workflow}"; then
-  echo "The dispatch receiver must not accept a tenant ID." >&2
+  echo "The workflow must not accept a tenant ID." >&2
   exit 1
 fi
 if ! grep -q 'git fetch origin' "${workflow}"; then
@@ -74,7 +74,7 @@ grep -q 'changed lines' "${workflow}"
 expect_rejected() {
   local variable="$1" invalid="$2" expected="$3" original="${!1}"
   printf -v "${variable}" '%s' "${invalid}"
-  if output="$(run_promotion validate-inputs 2>&1)"; then
+  if output="$(run_deployment_script validate-inputs 2>&1)"; then
     echo "Invalid ${variable} was accepted." >&2
     exit 1
   fi
@@ -107,18 +107,18 @@ git -C "${fixture}" config user.name test
 git -C "${fixture}" config user.email test@example.invalid
 git -C "${fixture}" add .
 git -C "${fixture}" commit -qm baseline
-promotion_script="${fixture}/scripts/promote-mcp-workload.sh"
-(cd "${fixture}" && run_promotion apply)
+deployment_script="${fixture}/scripts/promote-mcp-workload.sh"
+(cd "${fixture}" && run_deployment_script apply)
 
 expected_changes=$'README.md\nargocd/apps/mcp-platform-mcp.yaml\nbase/mcp-platform-mcp/deployment.yaml\nbase/mcp-platform-mcp/namespace.yaml\nbase/mcp-platform-mcp/serviceaccount.yaml'
 git -C "${fixture}" add -A
 actual_changes="$(git -C "${fixture}" diff --cached --name-only)"
 if [ "${actual_changes}" != "${expected_changes}" ]; then
-  echo "The valid promotion changed unexpected files: ${actual_changes}" >&2
+  echo "The valid run changed unexpected files: ${actual_changes}" >&2
   exit 1
 fi
 if rg 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp" >/dev/null; then
-  echo "The promoted base still contains a placeholder." >&2
+  echo "The generated manifests still contain a placeholder." >&2
   exit 1
 fi
 kubectl kustomize "${fixture}/base/mcp-platform-mcp" >/dev/null
@@ -127,14 +127,14 @@ actual_uuids="$(grep -REho '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \
   "${fixture}/base/mcp-platform-mcp" | sort -u)"
 expected_uuids="$(printf '%s\n%s\n' "${workload_client_id}" "${server_client_id}" | sort)"
 if [ "${actual_uuids}" != "${expected_uuids}" ]; then
-  echo "The promoted base contains an unexpected tenant or client ID." >&2
+  echo "The generated manifests contain an unexpected tenant or client ID." >&2
   exit 1
 fi
 
 server_client_id="33333333-3333-3333-3333-333333333333"
 istio_revision="asm-1-30"
-(cd "${fixture}" && run_promotion apply)
+(cd "${fixture}" && run_deployment_script apply)
 grep -q "${server_client_id}" "${fixture}/base/mcp-platform-mcp/deployment.yaml"
 grep -q "istio.io/rev: ${istio_revision}" "${fixture}/base/mcp-platform-mcp/namespace.yaml"
 
-echo "MCP scaffold and promotion contract passed."
+echo "MCP deployment PR contract passed."
