@@ -65,6 +65,11 @@ MCP deployment status: manifests only.
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.
 
+The MCP deployment workflow validates the image, identity, Istio revision, and
+application settings before changing a branch. It then runs
+`prepare-mcp-deployment-files.sh`, which renders the checked-in templates and
+opens a draft deployment PR. The workflow does not deploy to AKS.
+
 ## Promote the placeholder workload
 
 Run **Deploy AKS platform** with `bootstrap`, then run **Build AKS placeholder
