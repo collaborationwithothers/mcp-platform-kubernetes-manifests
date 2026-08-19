@@ -1,0 +1,21 @@
+# This Gateway binds the private MCP hostname to the existing AKS Istio
+# internal ingress component. cert-manager writes the named TLS credential
+# into the selected gateway workload's aks-istio-ingress namespace.
+apiVersion: networking.istio.io/v1
+kind: Gateway
+metadata:
+  name: mcp-platform-mcp
+  namespace: mcp-platform
+spec:
+  selector:
+    istio: aks-istio-ingressgateway-internal
+  servers:
+    - port:
+        number: 443
+        name: https-mcp
+        protocol: HTTPS
+      hosts:
+        - mcp.internal.consultwithcloud.com
+      tls:
+        mode: SIMPLE
+        credentialName: mcp-platform-mcp-tls

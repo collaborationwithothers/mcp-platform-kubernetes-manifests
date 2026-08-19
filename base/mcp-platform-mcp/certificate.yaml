@@ -1,0 +1,16 @@
+# cert-manager writes the private MCP certificate into the internal Istio
+# gateway workload's namespace. The selected AKS add-on gateway reads its TLS
+# credential from that namespace, even though gateway.yaml lives beside the
+# MCP Service in mcp-platform.
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: mcp-platform-mcp-tls
+  namespace: aks-istio-ingress
+spec:
+  secretName: mcp-platform-mcp-tls
+  issuerRef:
+    name: letsencrypt-mcp
+    kind: ClusterIssuer
+  dnsNames:
+    - mcp.internal.consultwithcloud.com

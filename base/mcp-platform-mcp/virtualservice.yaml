@@ -1,0 +1,21 @@
+# Only the private MCP host and resource path reach the MCP Service. The
+# placeholder keeps its separate wildcard HTTP Gateway and catch-all route.
+apiVersion: networking.istio.io/v1
+kind: VirtualService
+metadata:
+  name: mcp-platform-mcp
+  namespace: mcp-platform
+spec:
+  hosts:
+    - mcp.internal.consultwithcloud.com
+  gateways:
+    - mcp-platform-mcp
+  http:
+    - match:
+        - uri:
+            prefix: /mcp
+      route:
+        - destination:
+            host: mcp-server
+            port:
+              number: 80
