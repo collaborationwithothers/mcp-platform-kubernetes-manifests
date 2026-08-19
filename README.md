@@ -63,7 +63,7 @@ The MCP workload lands through four separate changes:
    [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
    adds the private certificate and route.
 
-MCP deployment status: deployment PR for acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:942f737914be859310766a68ec8bc61e7a90489c from source 942f737914be859310766a68ec8bc61e7a90489c.
+MCP deployment status: generated for acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:de15568d073e77b1533c232bf93ca580bf9aa4c9 from source de15568d073e77b1533c232bf93ca580bf9aa4c9.
 
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.
