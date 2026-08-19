@@ -15,13 +15,12 @@ things issue #110 set out to prove.
 
 ## What is here right now
 
-A single placeholder workload, not a real application. Its only job is to
-prove the platform chain works: an image gets pulled from the registry, Argo
-CD syncs it, Istio's own Gateway/VirtualService API routes to it through the
-Istio ingress gateway, that gateway answers on its pinned private IP, and
-APIM can reach it over the private network path. The real MCP server
-rewrite is a later, separate piece of work
-([mcp-platform-azure issue #115](https://github.com/collaborationwithothers/mcp-platform-azure/issues/115)).
+The placeholder is still the only deployed workload. Its job is to prove the
+platform chain from registry pull through Argo CD and private Istio ingress.
+
+`base/mcp-platform-mcp` scaffolds the real MCP server. It is not deployed yet.
+No file under `argocd/apps` references this base until the generated activation
+PR supplies the environment-specific values.
 
 ```
 argocd/apps/mcp-platform-demo.yaml   Argo CD Application for the placeholder,
@@ -45,6 +44,25 @@ mcp-platform-azure exactly, because the workload identity federated
 credential's subject is built from
 `system:serviceaccount:<namespace>:<serviceaccount>`. A mismatch here breaks
 the pod's ability to get an Azure AD token with no stored secret.
+
+## Deliver the MCP workload
+
+The MCP workload lands through three separate changes:
+
+1. The implementation PR owned by
+   [issue #150](https://github.com/collaborationwithothers/mcp-platform-azure/issues/150)
+   adds the inactive base and promotion receiver.
+2. The generated PR owned by
+   [issue #152](https://github.com/collaborationwithothers/mcp-platform-azure/issues/152)
+   fills the non-secret values and adds the Argo CD Application.
+3. The later TLS PR owned by
+   [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
+   adds the private certificate and route.
+
+MCP activation status: scaffold only.
+
+The pod gets its tenant and authority from the AKS workload identity webhook at
+startup. A tenant ID is never dispatched to or committed in this repository.
 
 ## Promote the placeholder workload
 
