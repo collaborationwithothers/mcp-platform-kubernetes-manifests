@@ -16,8 +16,9 @@ things issue #110 set out to prove.
 ## What is here right now
 
 The placeholder and MCP server are deployed beside each other. The placeholder
-keeps its existing route. The MCP server has a cluster-internal Service but no
-Gateway or VirtualService until issue #153 adds the private TLS route.
+keeps its existing route. The MCP server is configured to accept private HTTPS
+traffic for `mcp.internal.consultwithcloud.com/mcp` through the existing
+internal Istio ingress gateway.
 
 `base/mcp-platform-mcp` contains the MCP server manifests. Argo CD deploys them
 through `argocd/apps/mcp-platform-mcp.yaml`.
@@ -31,7 +32,8 @@ base/mcp-platform-demo/              Kustomize base: Namespace, ServiceAccount,
                                       Deployment, Service, Gateway, VirtualService
 argocd/apps/mcp-platform-mcp.yaml    Argo CD Application for the MCP server
 base/mcp-platform-mcp/               Kustomize base: Namespace, ServiceAccount,
-                                      Deployment, Service
+                                      Deployment, Service, Certificate, Gateway,
+                                      VirtualService
 ```
 
 `argocd/apps` is the directory the root Application points at
@@ -59,9 +61,28 @@ The MCP workload lands through four separate changes:
 3. The generated PR owned by
    [issue #152](https://github.com/collaborationwithothers/mcp-platform-azure/issues/152)
    fills the non-secret values and adds the Argo CD Application.
-4. The later TLS PR owned by
+4. The TLS PR owned by
    [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
    adds the private certificate and route.
+
+## Private MCP route
+
+The MCP Certificate writes its TLS Secret into `aks-istio-ingress`, where the
+selected AKS Istio gateway workload reads credentials. The Gateway accepts only
+`mcp.internal.consultwithcloud.com` on HTTPS. The VirtualService sends the
+`/mcp` prefix to the `mcp-server` Service in the same namespace. See the
+[AKS Istio secure gateway guide](https://learn.microsoft.com/azure/aks/istio-secure-gateway)
+and the
+[cert-manager Certificate guide](https://cert-manager.io/docs/usage/certificate/).
+
+Run `./scripts/validate-mcp-private-route.sh` to render the MCP base and check
+the certificate, route, backend, and unchanged placeholder configuration.
+
+Azure Private DNS owns the private address record in the platform repository.
+This repository adds no public record that maps the hostname to an address.
+cert-manager creates only a temporary public text record through Cloudflare.
+That text record proves control of the certificate name. It does not create a
+public route to the MCP server.
 
 MCP deployment status: generated for acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:de15568d073e77b1533c232bf93ca580bf9aa4c9 from source de15568d073e77b1533c232bf93ca580bf9aa4c9.
 

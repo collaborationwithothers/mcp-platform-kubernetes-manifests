@@ -6,3 +6,6 @@ resources:
   - serviceaccount.yaml
   - deployment.yaml
   - service.yaml
+  - certificate.yaml
+  - gateway.yaml
+  - virtualservice.yaml
