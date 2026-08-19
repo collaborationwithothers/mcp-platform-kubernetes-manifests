@@ -3,4 +3,4 @@ kind: Namespace
 metadata:
   name: mcp-platform
   labels:
-    istio.io/rev: REPLACE_ME_MANAGED_ISTIO_REVISION
+    istio.io/rev: "asm-1-29"
