@@ -15,11 +15,12 @@ things issue #110 set out to prove.
 
 ## What is here right now
 
-The placeholder is still the only deployed workload. Its job is to prove the
-platform chain from registry pull through Argo CD and private Istio ingress.
+The placeholder and MCP server are deployed beside each other. The placeholder
+keeps its existing route. The MCP server has a cluster-internal Service but no
+Gateway or VirtualService until issue #153 adds the private TLS route.
 
-`base/mcp-platform-mcp` contains the real MCP server manifests. Argo CD does
-not deploy them because no Application under `argocd/apps` references them.
+`base/mcp-platform-mcp` contains the MCP server manifests. Argo CD deploys them
+through `argocd/apps/mcp-platform-mcp.yaml`.
 
 ```
 argocd/apps/mcp-platform-demo.yaml   Argo CD Application for the placeholder,
@@ -28,13 +29,15 @@ argocd/apps/mcp-platform-demo.yaml   Argo CD Application for the placeholder,
                                       infra/argocd/bootstrap-app-of-apps.yaml
 base/mcp-platform-demo/              Kustomize base: Namespace, ServiceAccount,
                                       Deployment, Service, Gateway, VirtualService
+argocd/apps/mcp-platform-mcp.yaml    Argo CD Application for the MCP server
+base/mcp-platform-mcp/               Kustomize base: Namespace, ServiceAccount,
+                                      Deployment, Service
 ```
 
 `argocd/apps` is the directory the root Application points at
 (`spec.source.path: argocd/apps`), so everything Argo CD is meant to manage
-lives under it, directly or by reference. `mcp-platform-demo.yaml` is the
-one file there today; it points at `base/mcp-platform-demo` for the actual
-resources.
+lives under it, directly or by reference. `mcp-platform-demo.yaml` points at
+the placeholder base. `mcp-platform-mcp.yaml` points at the MCP server base.
 
 Namespace `mcp-platform-demo` and ServiceAccount `mcp-platform-placeholder`
 are not arbitrary names: they must match
