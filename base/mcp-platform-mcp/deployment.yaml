@@ -18,7 +18,7 @@ spec:
       containers:
         - name: mcp-server
           image: >-
-            REPLACE_ME_ACR_LOGIN_SERVER/mcp-tools-aspnetcore:REPLACE_ME_SOURCE_COMMIT
+            acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:942f737914be859310766a68ec8bc61e7a90489c
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -30,15 +30,15 @@ spec:
               exec dotnet McpTools.AspNetCore.dll
           env:
             - name: Authentication__Audience
-              value: REPLACE_ME_RESOURCE_AUDIENCE
+              value: "api://89ef34f7-7c4f-40f6-8c31-49ff2b3d7cdc"
             - name: MicrosoftEntra__ServerAppClientId
-              value: REPLACE_ME_SERVER_APPLICATION_CLIENT_ID
+              value: "89ef34f7-7c4f-40f6-8c31-49ff2b3d7cdc"
             - name: DownstreamOrdersApi__BaseUrl
-              value: REPLACE_ME_DOWNSTREAM_BASE_URL
+              value: "https://mcp-tracer-downstream-func.azurewebsites.net"
             - name: DownstreamOrdersApi__Scope
-              value: REPLACE_ME_DOWNSTREAM_SCOPE
+              value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/user_impersonation"
             - name: DownstreamOrdersApi__ApplicationScope
-              value: REPLACE_ME_DOWNSTREAM_APPLICATION_SCOPE
+              value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/.default"
           ports:
             - name: http
               containerPort: 8080
