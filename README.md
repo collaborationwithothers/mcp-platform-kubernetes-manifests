@@ -18,9 +18,8 @@ things issue #110 set out to prove.
 The placeholder is still the only deployed workload. Its job is to prove the
 platform chain from registry pull through Argo CD and private Istio ingress.
 
-`base/mcp-platform-mcp` scaffolds the real MCP server. It is not deployed yet.
-No file under `argocd/apps` references this base until the generated deployment
-PR supplies the environment-specific values.
+`base/mcp-platform-mcp` contains the real MCP server manifests. Argo CD does
+not deploy them because no Application under `argocd/apps` references them.
 
 ```
 argocd/apps/mcp-platform-demo.yaml   Argo CD Application for the placeholder,
@@ -47,20 +46,21 @@ the pod's ability to get an Azure AD token with no stored secret.
 
 ## Deliver the MCP workload
 
-The MCP workload lands through three separate changes:
+The MCP workload lands through four separate changes:
 
-1. The implementation PR owned by
+1. The manifest PR owned by
    [issue #150](https://github.com/collaborationwithothers/mcp-platform-azure/issues/150)
-   adds MCP manifests and a workflow that validates the image, identity, and application settings before
-   opening a PR. Argo CD deploys the manifests only after that PR adds an Application.
-2. The generated PR owned by
+   adds the MCP Kubernetes files without an Argo CD Application.
+2. The stacked workflow PR owned by issue #150 adds explicit templates and a
+   workflow that validates settings before opening a deployment PR.
+3. The generated PR owned by
    [issue #152](https://github.com/collaborationwithothers/mcp-platform-azure/issues/152)
    fills the non-secret values and adds the Argo CD Application.
-3. The later TLS PR owned by
+4. The later TLS PR owned by
    [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
    adds the private certificate and route.
 
-MCP deployment status: scaffold only.
+MCP deployment status: manifests only.
 
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.
