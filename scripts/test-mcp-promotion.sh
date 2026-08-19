@@ -15,7 +15,7 @@ resource_audience="api://mcp-server"
 downstream_base_url="https://orders.example.test"
 downstream_scope="api://orders-api/user_impersonation"
 downstream_application_scope="api://orders-api/.default"
-activation_issue="152"
+deployment_issue="152"
 
 run_promotion() {
   env \
@@ -28,7 +28,7 @@ run_promotion() {
     DOWNSTREAM_BASE_URL="${downstream_base_url}" \
     DOWNSTREAM_SCOPE="${downstream_scope}" \
     DOWNSTREAM_APPLICATION_SCOPE="${downstream_application_scope}" \
-    ACTIVATION_ISSUE="${activation_issue}" \
+    DEPLOYMENT_ISSUE="${deployment_issue}" \
     "${promotion_script}" "$@"
 }
 
@@ -46,6 +46,10 @@ git diff --exit-code origin/main -- \
 workflow=".github/workflows/promote-mcp-server-image.yml"
 if [ ! -f "${workflow}" ]; then
   echo "The MCP repository-dispatch receiver is missing." >&2
+  exit 1
+fi
+if ! grep -q 'mcp-server-gitops-promotion-requested' "${workflow}"; then
+  echo "The receiver does not use the agreed repository-dispatch event." >&2
   exit 1
 fi
 validation_line="$(grep -n 'validate-inputs' "${workflow}" | head -1 | cut -d: -f1)"
@@ -93,7 +97,7 @@ expect_rejected resource_audience https://wrong.example.test "resource_audience 
 expect_rejected downstream_base_url http://orders.example.test "downstream_base_url must be an HTTPS origin"
 expect_rejected downstream_scope api://orders-api/.default "downstream_scope must end with /user_impersonation"
 expect_rejected downstream_application_scope api://different/.default "downstream scopes must name the same resource"
-expect_rejected activation_issue 151 "activation_issue must be 152"
+expect_rejected deployment_issue 151 "deployment_issue must be 152"
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT

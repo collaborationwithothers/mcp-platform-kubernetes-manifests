@@ -19,7 +19,7 @@ The placeholder is still the only deployed workload. Its job is to prove the
 platform chain from registry pull through Argo CD and private Istio ingress.
 
 `base/mcp-platform-mcp` scaffolds the real MCP server. It is not deployed yet.
-No file under `argocd/apps` references this base until the generated activation
+No file under `argocd/apps` references this base until the generated deployment
 PR supplies the environment-specific values.
 
 ```
@@ -59,7 +59,7 @@ The MCP workload lands through three separate changes:
    [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
    adds the private certificate and route.
 
-MCP activation status: scaffold only.
+MCP deployment status: scaffold only.
 
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.

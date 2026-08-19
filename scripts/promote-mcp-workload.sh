@@ -36,7 +36,7 @@ uuid='^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{1
   reject "downstream_application_scope must end with /.default."
 [[ "${DOWNSTREAM_SCOPE%/user_impersonation}" = "${DOWNSTREAM_APPLICATION_SCOPE%/.default}" ]] || \
   reject "downstream scopes must name the same resource."
-[[ "${ACTIVATION_ISSUE:-}" = 152 ]] || reject "activation_issue must be 152."
+[[ "${DEPLOYMENT_ISSUE:-}" = 152 ]] || reject "deployment_issue must be 152."
 [ "${command}" = apply ] || exit 0
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -53,7 +53,7 @@ perl -0pi -e 's{^([ \t]*azure\.workload\.identity/client-id:[ \t]*).*$}{$1$ENV{W
 perl -0pi -e 's{^([ \t]*istio\.io/rev:[ \t]*).*$}{$1$ENV{MANAGED_ISTIO_REVISION}}m' base/mcp-platform-mcp/namespace.yaml
 perl -0pi -e 's{(- name: Authentication__Audience\n[ \t]*value:)[ \t]*\S+}{$1 $ENV{RESOURCE_AUDIENCE}}; s{(- name: MicrosoftEntra__ServerAppClientId\n[ \t]*value:)[ \t]*\S+}{$1 $ENV{SERVER_APPLICATION_CLIENT_ID}}; s{(- name: DownstreamOrdersApi__BaseUrl\n[ \t]*value:)[ \t]*\S+}{$1 $ENV{DOWNSTREAM_BASE_URL}}; s{(- name: DownstreamOrdersApi__Scope\n[ \t]*value:)[ \t]*\S+}{$1 $ENV{DOWNSTREAM_SCOPE}}; s{(- name: DownstreamOrdersApi__ApplicationScope\n[ \t]*value:)[ \t]*\S+}{$1 $ENV{DOWNSTREAM_APPLICATION_SCOPE}}' base/mcp-platform-mcp/deployment.yaml
 cp templates/mcp-platform-mcp-application.yaml argocd/apps/mcp-platform-mcp.yaml
-perl -0pi -e 's{^MCP activation status:.*$}{MCP activation status: generated for $ENV{IMAGE_REFERENCE} from source $ENV{SOURCE_COMMIT}.}m' README.md
+perl -0pi -e 's{^MCP deployment status:.*$}{MCP deployment status: generated for $ENV{IMAGE_REFERENCE} from source $ENV{SOURCE_COMMIT}.}m' README.md
 
 grep -Rqs 'REPLACE_ME_' base/mcp-platform-mcp && \
   reject "The promoted MCP base still contains a placeholder."
