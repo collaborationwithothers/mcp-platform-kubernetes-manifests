@@ -139,6 +139,11 @@ if grep -R -q 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp"; then
 fi
 kubectl kustomize "${fixture}/base/mcp-platform-mcp" >/dev/null
 rendered_deployment="$(kubectl kustomize "${fixture}/base/mcp-platform-mcp")"
+expected_update_strategy=$'  strategy:\n    rollingUpdate:\n      maxSurge: 0\n      maxUnavailable: 1\n    type: RollingUpdate'
+if [[ "${rendered_deployment}" != *"${expected_update_strategy}"* ]]; then
+  echo "The rendered MCP deployment must replace its sole replica without a surge Pod." >&2
+  exit 1
+fi
 expected_telemetry_env=$'        - name: APPLICATIONINSIGHTS_CONNECTION_STRING\n          valueFrom:\n            secretKeyRef:\n              key: application-insights-connection-string\n              name: mcp-server-telemetry'
 if [[ "${rendered_deployment}" != *"${expected_telemetry_env}"* ]]; then
   echo "The rendered MCP deployment must read telemetry configuration from the live-only Secret." >&2
