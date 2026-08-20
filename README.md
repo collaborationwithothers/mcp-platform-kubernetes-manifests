@@ -17,8 +17,9 @@ things issue #110 set out to prove.
 
 The placeholder and MCP server are deployed beside each other. The placeholder
 keeps its existing route. The MCP server is configured to accept private HTTPS
-traffic for `mcp.internal.consultwithcloud.com/mcp` through the existing
-internal Istio ingress gateway.
+traffic for `mcp.internal.consultwithcloud.com/mcp` and its exact OAuth
+protected-resource metadata path through the existing internal Istio ingress
+gateway.
 
 `base/mcp-platform-mcp` contains the MCP server manifests. Argo CD deploys them
 through `argocd/apps/mcp-platform-mcp.yaml`.
@@ -51,7 +52,8 @@ the pod's ability to get an Azure AD token with no stored secret.
 
 ## Deliver the MCP workload
 
-The MCP workload lands through four separate changes:
+The MCP workload landed through four separate changes. Issue #154 hardens the
+deployed contract with telemetry configuration and protected-resource metadata.
 
 1. The manifest PR owned by
    [issue #150](https://github.com/collaborationwithothers/mcp-platform-azure/issues/150)
@@ -64,13 +66,17 @@ The MCP workload lands through four separate changes:
 4. The TLS PR owned by
    [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
    adds the private certificate and route.
+5. The hardening PR owned by
+   [issue #154](https://github.com/collaborationwithothers/mcp-platform-azure/issues/154)
+   adds the live-only telemetry resource selector and protected-resource route.
 
 ## Private MCP route
 
 The MCP Certificate writes its TLS Secret into `aks-istio-ingress`, where the
 selected AKS Istio gateway workload reads credentials. The Gateway accepts only
 `mcp.internal.consultwithcloud.com` on HTTPS. The VirtualService sends the
-`/mcp` prefix to the `mcp-server` Service in the same namespace. See the
+`/mcp` prefix and only `/.well-known/oauth-protected-resource/mcp` to the
+`mcp-server` Service in the same namespace. See the
 [AKS Istio secure gateway guide](https://learn.microsoft.com/azure/aks/istio-secure-gateway)
 and the
 [cert-manager Certificate guide](https://cert-manager.io/docs/usage/certificate/).
@@ -88,6 +94,12 @@ MCP deployment status: generated for acrmcpaksplatform.azurecr.io/mcp-tools-aspn
 
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.
+
+The pod gets the Application Insights connection string from the live-only
+`mcp-server-telemetry` Secret. The platform bootstrap reads that configuration
+with its deployment identity, then creates the Secret before Argo CD reconciles
+the Deployment. The pod does not call Azure Resource Manager. Its workload
+identity authenticates telemetry ingestion.
 
 The MCP deployment workflow validates the image, identity, Istio revision, and
 application settings before changing a branch. It then runs

@@ -36,7 +36,7 @@ uuid='^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{1
   reject "downstream_application_scope must end with /.default."
 [[ "${DOWNSTREAM_SCOPE%/user_impersonation}" = "${DOWNSTREAM_APPLICATION_SCOPE%/.default}" ]] || \
   reject "downstream scopes must name the same resource."
-[[ "${DEPLOYMENT_ISSUE:-}" = 152 ]] || reject "deployment_issue must be 152."
+[[ "${DEPLOYMENT_ISSUE:-}" = 154 ]] || reject "deployment_issue must be 154."
 [ "${command}" = apply ] || exit 0
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -62,9 +62,9 @@ render_template() {
 write_template() {
   local template="$1" output="$2"
   shift 2
-  if [[ -f "${output}" ]] && rg -q 'REPLACE_ME_' "${output}"; then
-    diff -u <(rg -v 'REPLACE_ME_' "${output}") \
-      <(rg -v '@@[A-Z_]+@@' "${template}") >/dev/null || \
+  if [[ -f "${output}" ]] && grep -q 'REPLACE_ME_' "${output}"; then
+    diff -u <(grep -v 'REPLACE_ME_' "${output}") \
+      <(grep -Ev '@@[A-Z_]+@@' "${template}") >/dev/null || \
       reject "Template ${template} does not match ${output}."
   fi
   render_template "${template}" "$@" > "${output}.tmp"
@@ -96,7 +96,7 @@ while IFS= read -r line || [[ -n "${line}" ]]; do
 done < README.md > "${readme_tmp}"
 mv "${readme_tmp}" README.md
 
-if rg -q '@@[A-Z_]+@@' base/mcp-platform-mcp argocd/apps/mcp-platform-mcp.yaml; then
+if grep -REq '@@[A-Z_]+@@' base/mcp-platform-mcp argocd/apps/mcp-platform-mcp.yaml; then
   reject "The generated files contain an unresolved template token."
 fi
 kubectl kustomize base/mcp-platform-mcp >/dev/null

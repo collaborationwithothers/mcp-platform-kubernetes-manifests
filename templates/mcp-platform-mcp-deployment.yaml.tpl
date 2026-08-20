@@ -39,6 +39,11 @@ spec:
               value: "@@DOWNSTREAM_SCOPE@@"
             - name: DownstreamOrdersApi__ApplicationScope
               value: "@@DOWNSTREAM_APPLICATION_SCOPE@@"
+            - name: APPLICATIONINSIGHTS_CONNECTION_STRING
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-server-telemetry
+                  key: application-insights-connection-string
           ports:
             - name: http
               containerPort: 8080

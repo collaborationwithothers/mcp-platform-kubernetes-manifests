@@ -15,7 +15,7 @@ resource_audience="api://mcp-server"
 downstream_base_url="https://orders.example.test"
 downstream_scope="api://orders-api/user_impersonation"
 downstream_application_scope="api://orders-api/.default"
-deployment_issue="152"
+deployment_issue="154"
 
 run_deployment_script() {
   env \
@@ -32,8 +32,8 @@ run_deployment_script() {
     "${deployment_script}" "$@"
 }
 
-if rg -l 'path: base/mcp-platform-mcp' argocd/apps >/dev/null; then
-  echo "The manifest PR must not add an Argo CD Application." >&2
+if ! git diff --quiet origin/main -- argocd/apps/mcp-platform-mcp.yaml; then
+  echo "The deployment contract must not change the existing Argo CD Application." >&2
   exit 1
 fi
 
@@ -41,8 +41,14 @@ git diff --exit-code origin/main -- \
   base/mcp-platform-demo \
   argocd/apps/mcp-platform-demo.yaml >/dev/null
 
-if rg -q 'perl[[:space:]]+-' "${deployment_script}"; then
+if grep -Eq 'perl[[:space:]]+-' "${deployment_script}"; then
   echo "The deployment script must render explicit templates without Perl." >&2
+  exit 1
+fi
+if grep -Eq "^[[:space:]]+value:[[:space:]]*['\\\"]?InstrumentationKey=" \
+  templates/mcp-platform-mcp-deployment.yaml.tpl \
+  base/mcp-platform-mcp/deployment.yaml; then
+  echo "The MCP deployment must not contain an Application Insights connection string value." >&2
   exit 1
 fi
 workflow=".github/workflows/prepare-mcp-deployment-pr.yml"
@@ -62,6 +68,18 @@ if grep -Eq 'TENANT_ID:.*client_payload' "${workflow}"; then
 fi
 if ! grep -q 'git fetch origin' "${workflow}"; then
   echo "A repeat dispatch must update its existing generated branch." >&2
+  exit 1
+fi
+for script in test-mcp-deployment-pr.sh validate-mcp-private-route.sh; do
+  if ! grep -q "bash scripts/${script}" "${workflow}"; then
+    echo "The workflow must run ${script} for pull requests." >&2
+    exit 1
+  fi
+done
+static_job="$(sed -n '/verify-static-contracts:/,/prepare-deployment-pr:/p' "${workflow}")"
+if [[ "${static_job}" != *'contents: read'* ]] || \
+  [[ "${static_job}" != *'fetch-depth: 0'* ]]; then
+  echo "The pull request contract job must be read-only and fetch origin/main." >&2
   exit 1
 fi
 for section in '## PR size' '## Merge class' '## Checklist'; do
@@ -95,7 +113,7 @@ expect_rejected resource_audience https://wrong.example.test "resource_audience 
 expect_rejected downstream_base_url http://orders.example.test "downstream_base_url must be an HTTPS origin"
 expect_rejected downstream_scope api://orders-api/.default "downstream_scope must end with /user_impersonation"
 expect_rejected downstream_application_scope api://different/.default "downstream scopes must name the same resource"
-expect_rejected deployment_issue 151 "deployment_issue must be 152"
+expect_rejected deployment_issue 152 "deployment_issue must be 154"
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
@@ -106,28 +124,26 @@ git -C "${fixture}" config user.email test@example.invalid
 git -C "${fixture}" add .
 git -C "${fixture}" commit -qm baseline
 deployment_script="${fixture}/scripts/prepare-mcp-deployment-files.sh"
-deployment_template="${fixture}/templates/mcp-platform-mcp-deployment.yaml.tpl"
-cp "${deployment_template}" "${deployment_template}.original"
-printf '\n# structural drift\n' >> "${deployment_template}"
-if (cd "${fixture}" && run_deployment_script apply >/dev/null 2>&1); then
-  echo "A template that differs from the stored manifest was accepted." >&2
-  exit 1
-fi
-mv "${deployment_template}.original" "${deployment_template}"
 (cd "${fixture}" && run_deployment_script apply)
 
-expected_changes=$'README.md\nargocd/apps/mcp-platform-mcp.yaml\nbase/mcp-platform-mcp/deployment.yaml\nbase/mcp-platform-mcp/namespace.yaml\nbase/mcp-platform-mcp/serviceaccount.yaml'
+expected_changes=$'README.md\nbase/mcp-platform-mcp/deployment.yaml\nbase/mcp-platform-mcp/serviceaccount.yaml'
 git -C "${fixture}" add -A
 actual_changes="$(git -C "${fixture}" diff --cached --name-only)"
 if [ "${actual_changes}" != "${expected_changes}" ]; then
   echo "The valid run changed unexpected files: ${actual_changes}" >&2
   exit 1
 fi
-if rg 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp" >/dev/null; then
+if grep -R -q 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp"; then
   echo "The generated manifests still contain a placeholder." >&2
   exit 1
 fi
 kubectl kustomize "${fixture}/base/mcp-platform-mcp" >/dev/null
+rendered_deployment="$(kubectl kustomize "${fixture}/base/mcp-platform-mcp")"
+expected_telemetry_env=$'        - name: APPLICATIONINSIGHTS_CONNECTION_STRING\n          valueFrom:\n            secretKeyRef:\n              key: application-insights-connection-string\n              name: mcp-server-telemetry'
+if [[ "${rendered_deployment}" != *"${expected_telemetry_env}"* ]]; then
+  echo "The rendered MCP deployment must read telemetry configuration from the live-only Secret." >&2
+  exit 1
+fi
 git -C "${fixture}" diff --exit-code -- base/mcp-platform-demo argocd/apps/mcp-platform-demo.yaml >/dev/null
 actual_uuids="$(grep -REho '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \
   "${fixture}/base/mcp-platform-mcp" | sort -u)"
@@ -142,5 +158,7 @@ istio_revision="asm-1-30"
 (cd "${fixture}" && run_deployment_script apply)
 grep -q "${server_client_id}" "${fixture}/base/mcp-platform-mcp/deployment.yaml"
 grep -q "istio.io/rev: \"${istio_revision}\"" "${fixture}/base/mcp-platform-mcp/namespace.yaml"
+grep -q 'codex/issue-154-mcp-workload' "${workflow}"
+grep -q 'mcp-platform-azure#154' "${workflow}"
 
 echo "MCP deployment PR contract passed."

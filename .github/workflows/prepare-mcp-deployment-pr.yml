@@ -1,17 +1,41 @@
 name: Prepare MCP deployment PR
 
 on:
+  pull_request:
+    branches:
+      - main
   repository_dispatch:
     types:
       - mcp-server-gitops-promotion-requested
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
-  prepare-deployment-pr:
+  verify-static-contracts:
+    if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Verify GitOps contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/test-mcp-deployment-pr.sh
+          bash scripts/validate-mcp-private-route.sh
+
+  prepare-deployment-pr:
+    if: github.event_name == 'repository_dispatch'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     concurrency:
       group: mcp-server-deployment-pr
       cancel-in-progress: false
@@ -46,7 +70,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          branch="codex/issue-152-mcp-workload-${SOURCE_COMMIT}"
+          branch="codex/issue-154-mcp-workload-${SOURCE_COMMIT}"
           if git ls-remote --exit-code --heads origin \
             "refs/heads/${branch}" >/dev/null; then
             git fetch origin "${branch}"
@@ -96,16 +120,15 @@ jobs:
               "%d deletions; %d changed lines", files, additions, deletions,
               additions + deletions }')"
           body=$'## The concept\n\n'
-          body+=$'Before this PR, Argo CD has no MCP Application.\n\n'
-          body+=$'After this PR, Argo CD deploys the image with its identity, '
-          body+=$'runtime settings, and Istio revision. TLS is deferred.\n\n'
-          body+=$'Refs collaborationwithothers/mcp-platform-azure#152.\n\n'
+          body+=$'Before this PR, Argo CD tracks the prior immutable MCP image.\n\n'
+          body+=$'After this PR, Argo CD tracks the requested immutable MCP image '
+          body+=$'and the dispatched runtime, identity, and Istio settings.\n\n'
+          body+=$'Refs collaborationwithothers/mcp-platform-azure#154.\n\n'
           body+=$'## Reading order: core files first\n\nCore:\n\n'
           body+=$'- `base/mcp-platform-mcp/deployment.yaml` - runtime.\n'
           body+=$'- `base/mcp-platform-mcp/namespace.yaml` - Istio revision.\n'
-          body+=$'- `base/mcp-platform-mcp/serviceaccount.yaml` - identity.\n\n'
+          body+=$'- `base/mcp-platform-mcp/serviceaccount.yaml` - workload identity.\n\n'
           body+=$'Supporting:\n\n'
-          body+=$'- `argocd/apps/mcp-platform-mcp.yaml` - Application.\n'
           body+=$'- `README.md` - records deployment.\n\n'
           body+=$'## PR size\n\n'
           body+=$'Independently verified behavior: generated MCP '
@@ -117,8 +140,8 @@ jobs:
           body+=$'Approved exception link: N/A\n\n## Merge class\n\n'
           body+=$'- [ ] auto-merge-ok\n- [x] Requires review\n'
           body+=$'- [x] needs-live-test\n\n## Review summary\n\n'
-          body+=$'Confirm Terraform values and the source commit. Check no '
-          body+=$'route, certificate, tenant ID, or placeholder change.\n\n'
+          body+=$'Confirm the source commit and that no route, certificate, '
+          body+=$'tenant ID, or placeholder change is included.\n\n'
           body+=$'AKS injection: https://learn.microsoft.com/azure/aks/'
           body+=$'workload-identity-overview#service-account-labels-and-'
           body+=$'annotations\n'
