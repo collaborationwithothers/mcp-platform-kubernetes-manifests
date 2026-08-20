@@ -41,11 +41,11 @@ git diff --exit-code origin/main -- \
   base/mcp-platform-demo \
   argocd/apps/mcp-platform-demo.yaml >/dev/null
 
-if rg -q 'perl[[:space:]]+-' "${deployment_script}"; then
+if grep -Eq 'perl[[:space:]]+-' "${deployment_script}"; then
   echo "The deployment script must render explicit templates without Perl." >&2
   exit 1
 fi
-if rg -q 'APPLICATIONINSIGHTS_CONNECTION_STRING|ConnectionString' \
+if grep -Eq 'APPLICATIONINSIGHTS_CONNECTION_STRING|ConnectionString' \
   templates/mcp-platform-mcp-deployment.yaml.tpl \
   base/mcp-platform-mcp/deployment.yaml; then
   echo "The MCP deployment must not contain an Application Insights connection string." >&2
@@ -133,25 +133,17 @@ if [ "${actual_changes}" != "${expected_changes}" ]; then
   echo "The valid run changed unexpected files: ${actual_changes}" >&2
   exit 1
 fi
-if rg 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp" >/dev/null; then
+if grep -R -q 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp"; then
   echo "The generated manifests still contain a placeholder." >&2
   exit 1
 fi
 kubectl kustomize "${fixture}/base/mcp-platform-mcp" >/dev/null
-rendered_deployment="$(
-  kubectl create --dry-run=client --validate=false \
-    -f "${fixture}/base/mcp-platform-mcp/deployment.yaml" -o json
-)"
-jq -e '
-  .spec.template.spec.containers[]
-  | select(.name == "mcp-server")
-  | .env[]
-  | select(.name == "AzureMonitor__ApplicationInsightsComponentResourceId")
-  | .valueFrom.secretKeyRef == {
-      "name": "mcp-server-telemetry",
-      "key": "application-insights-component-resource-id"
-    }
-' <<<"${rendered_deployment}" >/dev/null
+rendered_deployment="$(kubectl kustomize "${fixture}/base/mcp-platform-mcp")"
+expected_telemetry_env=$'        - name: AzureMonitor__ApplicationInsightsComponentResourceId\n          valueFrom:\n            secretKeyRef:\n              key: application-insights-component-resource-id\n              name: mcp-server-telemetry'
+if [[ "${rendered_deployment}" != *"${expected_telemetry_env}"* ]]; then
+  echo "The rendered MCP deployment must select the live-only telemetry resource ID." >&2
+  exit 1
+fi
 git -C "${fixture}" diff --exit-code -- base/mcp-platform-demo argocd/apps/mcp-platform-demo.yaml >/dev/null
 actual_uuids="$(grep -REho '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \
   "${fixture}/base/mcp-platform-mcp" | sort -u)"
