@@ -9,16 +9,19 @@ on:
       - mcp-server-gitops-promotion-requested
 
 permissions:
-  contents: write
-  pull-requests: write
+  contents: read
 
 jobs:
   verify-static-contracts:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     steps:
       - name: Check out the pull request
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Verify GitOps contracts
         shell: bash
@@ -30,6 +33,9 @@ jobs:
   prepare-deployment-pr:
     if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
     concurrency:
       group: mcp-server-deployment-pr
       cancel-in-progress: false
@@ -123,7 +129,6 @@ jobs:
           body+=$'- `base/mcp-platform-mcp/namespace.yaml` - Istio revision.\n'
           body+=$'- `base/mcp-platform-mcp/serviceaccount.yaml` - workload identity.\n\n'
           body+=$'Supporting:\n\n'
-          body+=$'- `argocd/apps/mcp-platform-mcp.yaml` - Application.\n'
           body+=$'- `README.md` - records deployment.\n\n'
           body+=$'## PR size\n\n'
           body+=$'Independently verified behavior: generated MCP '

@@ -76,6 +76,12 @@ for script in test-mcp-deployment-pr.sh validate-mcp-private-route.sh; do
     exit 1
   fi
 done
+static_job="$(sed -n '/verify-static-contracts:/,/prepare-deployment-pr:/p' "${workflow}")"
+if [[ "${static_job}" != *'contents: read'* ]] || \
+  [[ "${static_job}" != *'fetch-depth: 0'* ]]; then
+  echo "The pull request contract job must be read-only and fetch origin/main." >&2
+  exit 1
+fi
 for section in '## PR size' '## Merge class' '## Checklist'; do
   grep -q "${section}" "${workflow}"
 done
