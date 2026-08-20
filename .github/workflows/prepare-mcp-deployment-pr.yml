@@ -1,6 +1,9 @@
 name: Prepare MCP deployment PR
 
 on:
+  pull_request:
+    branches:
+      - main
   repository_dispatch:
     types:
       - mcp-server-gitops-promotion-requested
@@ -10,7 +13,22 @@ permissions:
   pull-requests: write
 
 jobs:
+  verify-static-contracts:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out the pull request
+        uses: actions/checkout@v4
+
+      - name: Verify GitOps contracts
+        shell: bash
+        run: |
+          set -euo pipefail
+          bash scripts/test-mcp-deployment-pr.sh
+          bash scripts/validate-mcp-private-route.sh
+
   prepare-deployment-pr:
+    if: github.event_name == 'repository_dispatch'
     runs-on: ubuntu-latest
     concurrency:
       group: mcp-server-deployment-pr
@@ -97,11 +115,12 @@ jobs:
               additions + deletions }')"
           body=$'## The concept\n\n'
           body+=$'Before this PR, Argo CD tracks the prior immutable MCP image.\n\n'
-          body+=$'After this PR, Argo CD tracks the requested immutable MCP image. '
-          body+=$'The runtime identity and non-secret settings stay unchanged.\n\n'
+          body+=$'After this PR, Argo CD tracks the requested immutable MCP image '
+          body+=$'and the dispatched runtime, identity, and Istio settings.\n\n'
           body+=$'Refs collaborationwithothers/mcp-platform-azure#154.\n\n'
           body+=$'## Reading order: core files first\n\nCore:\n\n'
           body+=$'- `base/mcp-platform-mcp/deployment.yaml` - runtime.\n'
+          body+=$'- `base/mcp-platform-mcp/namespace.yaml` - Istio revision.\n'
           body+=$'- `base/mcp-platform-mcp/serviceaccount.yaml` - workload identity.\n\n'
           body+=$'Supporting:\n\n'
           body+=$'- `argocd/apps/mcp-platform-mcp.yaml` - Application.\n'

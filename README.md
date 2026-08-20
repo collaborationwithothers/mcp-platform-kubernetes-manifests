@@ -52,7 +52,8 @@ the pod's ability to get an Azure AD token with no stored secret.
 
 ## Deliver the MCP workload
 
-The MCP workload lands through four separate changes:
+The MCP workload landed through four separate changes. Issue #154 hardens the
+deployed contract with telemetry configuration and protected-resource metadata.
 
 1. The manifest PR owned by
    [issue #150](https://github.com/collaborationwithothers/mcp-platform-azure/issues/150)
@@ -65,6 +66,9 @@ The MCP workload lands through four separate changes:
 4. The TLS PR owned by
    [issue #153](https://github.com/collaborationwithothers/mcp-platform-azure/issues/153)
    adds the private certificate and route.
+5. The hardening PR owned by
+   [issue #154](https://github.com/collaborationwithothers/mcp-platform-azure/issues/154)
+   adds the live-only telemetry resource selector and protected-resource route.
 
 ## Private MCP route
 

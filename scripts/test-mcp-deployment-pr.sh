@@ -70,6 +70,12 @@ if ! grep -q 'git fetch origin' "${workflow}"; then
   echo "A repeat dispatch must update its existing generated branch." >&2
   exit 1
 fi
+for script in test-mcp-deployment-pr.sh validate-mcp-private-route.sh; do
+  if ! grep -q "bash scripts/${script}" "${workflow}"; then
+    echo "The workflow must run ${script} for pull requests." >&2
+    exit 1
+  fi
+done
 for section in '## PR size' '## Merge class' '## Checklist'; do
   grep -q "${section}" "${workflow}"
 done
