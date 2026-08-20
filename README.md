@@ -90,7 +90,7 @@ cert-manager creates only a temporary public text record through Cloudflare.
 That text record proves control of the certificate name. It does not create a
 public route to the MCP server.
 
-MCP deployment status: generated for acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:7ca14ab1da178cb77004905ac936183fd192f052 from source 7ca14ab1da178cb77004905ac936183fd192f052.
+MCP deployment status: generated for acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:828d930bf8b86b9f3625dca8b8a766d993f744f8 from source 828d930bf8b86b9f3625dca8b8a766d993f744f8.
 
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.
