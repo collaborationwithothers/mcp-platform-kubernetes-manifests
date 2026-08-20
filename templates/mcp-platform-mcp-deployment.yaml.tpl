@@ -39,6 +39,11 @@ spec:
               value: "@@DOWNSTREAM_SCOPE@@"
             - name: DownstreamOrdersApi__ApplicationScope
               value: "@@DOWNSTREAM_APPLICATION_SCOPE@@"
+            - name: AzureMonitor__ApplicationInsightsComponentResourceId
+              valueFrom:
+                secretKeyRef:
+                  name: mcp-server-telemetry
+                  key: application-insights-component-resource-id
           ports:
             - name: http
               containerPort: 8080

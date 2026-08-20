@@ -78,9 +78,9 @@ assert_rendered_contract '
       "mcp.internal.consultwithcloud.com"
     ]
     and $resources[0].spec.gateways == ["mcp-platform-mcp"]
-    and ($resources[0].spec.http | length) == 1
+    and ($resources[0].spec.http | length) == 2
     and $resources[0].spec.http[0].match == [{
-      "uri": {"prefix": "/mcp"}
+      "uri": {"exact": "/.well-known/oauth-protected-resource/mcp"}
     }]
     and $resources[0].spec.http[0].route == [{
       "destination": {
@@ -88,7 +88,16 @@ assert_rendered_contract '
         "port": {"number": 80}
       }
     }]
-' "The rendered MCP base must route only the private host and /mcp prefix to the MCP Service."
+    and $resources[0].spec.http[1].match == [{
+      "uri": {"prefix": "/mcp"}
+    }]
+    and $resources[0].spec.http[1].route == [{
+      "destination": {
+        "host": "mcp-server",
+        "port": {"number": 80}
+      }
+    }]
+' "The rendered MCP base must route only the private host, /mcp prefix, and exact protected-resource metadata path to the MCP Service."
 
 git diff --exit-code origin/main -- \
   base/mcp-platform-demo \

@@ -15,7 +15,7 @@ resource_audience="api://mcp-server"
 downstream_base_url="https://orders.example.test"
 downstream_scope="api://orders-api/user_impersonation"
 downstream_application_scope="api://orders-api/.default"
-deployment_issue="152"
+deployment_issue="154"
 
 run_deployment_script() {
   env \
@@ -32,8 +32,8 @@ run_deployment_script() {
     "${deployment_script}" "$@"
 }
 
-if rg -l 'path: base/mcp-platform-mcp' argocd/apps >/dev/null; then
-  echo "The manifest PR must not add an Argo CD Application." >&2
+if ! git diff --quiet origin/main -- argocd/apps/mcp-platform-mcp.yaml; then
+  echo "The deployment contract must not change the existing Argo CD Application." >&2
   exit 1
 fi
 
@@ -43,6 +43,12 @@ git diff --exit-code origin/main -- \
 
 if rg -q 'perl[[:space:]]+-' "${deployment_script}"; then
   echo "The deployment script must render explicit templates without Perl." >&2
+  exit 1
+fi
+if rg -q 'APPLICATIONINSIGHTS_CONNECTION_STRING|ConnectionString' \
+  templates/mcp-platform-mcp-deployment.yaml.tpl \
+  base/mcp-platform-mcp/deployment.yaml; then
+  echo "The MCP deployment must not contain an Application Insights connection string." >&2
   exit 1
 fi
 workflow=".github/workflows/prepare-mcp-deployment-pr.yml"
@@ -95,7 +101,7 @@ expect_rejected resource_audience https://wrong.example.test "resource_audience 
 expect_rejected downstream_base_url http://orders.example.test "downstream_base_url must be an HTTPS origin"
 expect_rejected downstream_scope api://orders-api/.default "downstream_scope must end with /user_impersonation"
 expect_rejected downstream_application_scope api://different/.default "downstream scopes must name the same resource"
-expect_rejected deployment_issue 151 "deployment_issue must be 152"
+expect_rejected deployment_issue 152 "deployment_issue must be 154"
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
@@ -106,17 +112,9 @@ git -C "${fixture}" config user.email test@example.invalid
 git -C "${fixture}" add .
 git -C "${fixture}" commit -qm baseline
 deployment_script="${fixture}/scripts/prepare-mcp-deployment-files.sh"
-deployment_template="${fixture}/templates/mcp-platform-mcp-deployment.yaml.tpl"
-cp "${deployment_template}" "${deployment_template}.original"
-printf '\n# structural drift\n' >> "${deployment_template}"
-if (cd "${fixture}" && run_deployment_script apply >/dev/null 2>&1); then
-  echo "A template that differs from the stored manifest was accepted." >&2
-  exit 1
-fi
-mv "${deployment_template}.original" "${deployment_template}"
 (cd "${fixture}" && run_deployment_script apply)
 
-expected_changes=$'README.md\nargocd/apps/mcp-platform-mcp.yaml\nbase/mcp-platform-mcp/deployment.yaml\nbase/mcp-platform-mcp/namespace.yaml\nbase/mcp-platform-mcp/serviceaccount.yaml'
+expected_changes=$'README.md\nbase/mcp-platform-mcp/deployment.yaml\nbase/mcp-platform-mcp/serviceaccount.yaml'
 git -C "${fixture}" add -A
 actual_changes="$(git -C "${fixture}" diff --cached --name-only)"
 if [ "${actual_changes}" != "${expected_changes}" ]; then
@@ -128,6 +126,20 @@ if rg 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp" >/dev/null; then
   exit 1
 fi
 kubectl kustomize "${fixture}/base/mcp-platform-mcp" >/dev/null
+rendered_deployment="$(
+  kubectl create --dry-run=client --validate=false \
+    -f "${fixture}/base/mcp-platform-mcp/deployment.yaml" -o json
+)"
+jq -e '
+  .spec.template.spec.containers[]
+  | select(.name == "mcp-server")
+  | .env[]
+  | select(.name == "AzureMonitor__ApplicationInsightsComponentResourceId")
+  | .valueFrom.secretKeyRef == {
+      "name": "mcp-server-telemetry",
+      "key": "application-insights-component-resource-id"
+    }
+' <<<"${rendered_deployment}" >/dev/null
 git -C "${fixture}" diff --exit-code -- base/mcp-platform-demo argocd/apps/mcp-platform-demo.yaml >/dev/null
 actual_uuids="$(grep -REho '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \
   "${fixture}/base/mcp-platform-mcp" | sort -u)"
@@ -142,5 +154,7 @@ istio_revision="asm-1-30"
 (cd "${fixture}" && run_deployment_script apply)
 grep -q "${server_client_id}" "${fixture}/base/mcp-platform-mcp/deployment.yaml"
 grep -q "istio.io/rev: \"${istio_revision}\"" "${fixture}/base/mcp-platform-mcp/namespace.yaml"
+grep -q 'codex/issue-154-mcp-workload' "${workflow}"
+grep -q 'mcp-platform-azure#154' "${workflow}"
 
 echo "MCP deployment PR contract passed."

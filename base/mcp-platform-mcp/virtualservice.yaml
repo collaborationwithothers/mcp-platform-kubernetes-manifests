@@ -13,6 +13,14 @@ spec:
   http:
     - match:
         - uri:
+            exact: /.well-known/oauth-protected-resource/mcp
+      route:
+        - destination:
+            host: mcp-server
+            port:
+              number: 80
+    - match:
+        - uri:
             prefix: /mcp
       route:
         - destination:

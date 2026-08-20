@@ -36,7 +36,7 @@ uuid='^[0-9A-Fa-f]{8}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{4}-[0-9A-Fa-f]{1
   reject "downstream_application_scope must end with /.default."
 [[ "${DOWNSTREAM_SCOPE%/user_impersonation}" = "${DOWNSTREAM_APPLICATION_SCOPE%/.default}" ]] || \
   reject "downstream scopes must name the same resource."
-[[ "${DEPLOYMENT_ISSUE:-}" = 152 ]] || reject "deployment_issue must be 152."
+[[ "${DEPLOYMENT_ISSUE:-}" = 154 ]] || reject "deployment_issue must be 154."
 [ "${command}" = apply ] || exit 0
 
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
