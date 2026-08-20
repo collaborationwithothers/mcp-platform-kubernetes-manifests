@@ -95,11 +95,11 @@ MCP deployment status: generated for acrmcpaksplatform.azurecr.io/mcp-tools-aspn
 The pod gets its tenant and authority from the AKS workload identity webhook at
 startup. A tenant ID is never dispatched to or committed in this repository.
 
-The pod also gets the Application Insights component resource ID from the
-live-only `mcp-server-telemetry` Secret. The ID selects the Azure resource. It
-is not a connection string. The workload identity reads the connection string
-at startup and keeps it in memory. The platform bootstrap must create this
-Secret before Argo CD reconciles the Deployment.
+The pod gets the Application Insights connection string from the live-only
+`mcp-server-telemetry` Secret. The platform bootstrap reads that configuration
+with its deployment identity, then creates the Secret before Argo CD reconciles
+the Deployment. The pod does not call Azure Resource Manager. Its workload
+identity authenticates telemetry ingestion.
 
 The MCP deployment workflow validates the image, identity, Istio revision, and
 application settings before changing a branch. It then runs

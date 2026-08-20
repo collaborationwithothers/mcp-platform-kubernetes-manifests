@@ -39,11 +39,11 @@ spec:
               value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/user_impersonation"
             - name: DownstreamOrdersApi__ApplicationScope
               value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/.default"
-            - name: AzureMonitor__ApplicationInsightsComponentResourceId
+            - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
                   name: mcp-server-telemetry
-                  key: application-insights-component-resource-id
+                  key: application-insights-connection-string
           ports:
             - name: http
               containerPort: 8080

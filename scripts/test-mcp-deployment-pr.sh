@@ -45,10 +45,10 @@ if grep -Eq 'perl[[:space:]]+-' "${deployment_script}"; then
   echo "The deployment script must render explicit templates without Perl." >&2
   exit 1
 fi
-if grep -Eq 'APPLICATIONINSIGHTS_CONNECTION_STRING|ConnectionString' \
+if grep -Eq "^[[:space:]]+value:[[:space:]]*['\\\"]?InstrumentationKey=" \
   templates/mcp-platform-mcp-deployment.yaml.tpl \
   base/mcp-platform-mcp/deployment.yaml; then
-  echo "The MCP deployment must not contain an Application Insights connection string." >&2
+  echo "The MCP deployment must not contain an Application Insights connection string value." >&2
   exit 1
 fi
 workflow=".github/workflows/prepare-mcp-deployment-pr.yml"
@@ -139,9 +139,9 @@ if grep -R -q 'REPLACE_ME_' "${fixture}/base/mcp-platform-mcp"; then
 fi
 kubectl kustomize "${fixture}/base/mcp-platform-mcp" >/dev/null
 rendered_deployment="$(kubectl kustomize "${fixture}/base/mcp-platform-mcp")"
-expected_telemetry_env=$'        - name: AzureMonitor__ApplicationInsightsComponentResourceId\n          valueFrom:\n            secretKeyRef:\n              key: application-insights-component-resource-id\n              name: mcp-server-telemetry'
+expected_telemetry_env=$'        - name: APPLICATIONINSIGHTS_CONNECTION_STRING\n          valueFrom:\n            secretKeyRef:\n              key: application-insights-connection-string\n              name: mcp-server-telemetry'
 if [[ "${rendered_deployment}" != *"${expected_telemetry_env}"* ]]; then
-  echo "The rendered MCP deployment must select the live-only telemetry resource ID." >&2
+  echo "The rendered MCP deployment must read telemetry configuration from the live-only Secret." >&2
   exit 1
 fi
 git -C "${fixture}" diff --exit-code -- base/mcp-platform-demo argocd/apps/mcp-platform-demo.yaml >/dev/null
