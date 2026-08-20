@@ -18,7 +18,7 @@ spec:
       containers:
         - name: mcp-server
           image: >-
-            acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:de15568d073e77b1533c232bf93ca580bf9aa4c9
+            acrmcpaksplatform.azurecr.io/mcp-tools-aspnetcore:f1fdac173e6b8a584ca4b812787eadfae84df0f7
           command: ["/bin/sh", "-c"]
           args:
             - |
