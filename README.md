@@ -101,6 +101,12 @@ with its deployment identity, then creates the Secret before Argo CD reconciles
 the Deployment. The pod does not call Azure Resource Manager. Its workload
 identity authenticates telemetry ingestion.
 
+The MCP Deployment has one replica and uses a no-surge rolling update. It
+replaces the sole replica before scheduling the next one, so image promotion
+does not need spare node capacity. MCP is briefly unavailable while the
+replacement pod starts. See the
+[Kubernetes Deployment strategy documentation](https://kubernetes.io/docs/concepts/workloads/controllers/deployment/).
+
 The MCP deployment workflow validates the image, identity, Istio revision, and
 application settings before changing a branch. It then runs
 `prepare-mcp-deployment-files.sh`, which renders the checked-in templates and
