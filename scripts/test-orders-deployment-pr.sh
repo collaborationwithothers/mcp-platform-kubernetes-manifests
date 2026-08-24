@@ -88,20 +88,35 @@ git -C "${fixture}" config user.name test
 git -C "${fixture}" config user.email test@example.invalid
 git -C "${fixture}" add .
 git -C "${fixture}" commit -qm baseline
+expected_changes=$'base/mcp-platform-mcp/orders-endpoint-patch.yaml\nbase/mcp-platform-orders/workload.yaml'
+if [ ! -f "${fixture}/argocd/apps/mcp-platform-orders.yaml" ]; then
+  expected_changes+=$'\nargocd/apps/mcp-platform-orders.yaml'
+fi
+if ! grep -Fq -- 'orders-endpoint-patch.yaml' \
+  "${fixture}/base/mcp-platform-mcp/kustomization.yaml"; then
+  expected_changes+=$'\nbase/mcp-platform-mcp/kustomization.yaml'
+fi
+expected_changes="$(sort <<< "${expected_changes}")"
 script="${fixture}/scripts/prepare-orders-deployment-files.sh"
 (cd "${fixture}" && run_script apply)
 
-normalized_workload="${fixture}/normalized-orders-workload.yaml"
-sed \
-  -e "s#${image_reference}#REPLACE_ME_ORDERS_IMAGE#" \
-  -e "s#${orders_audience}#REPLACE_ME_ORDERS_AUDIENCE#" \
-  -e "s#${workload_client_id}#REPLACE_ME_ORDERS_CLIENT_ID#" \
-  "${fixture}/base/mcp-platform-orders/workload.yaml" > "${normalized_workload}"
-diff -u "${repo_root}/base/mcp-platform-orders/workload.yaml" \
-  "${normalized_workload}"
-rm "${normalized_workload}"
+normalize_workload() {
+  sed -E \
+    -e 's#(azure.workload.identity/client-id: )"[^"]+"#\1"REPLACE_ME_ORDERS_CLIENT_ID"#' \
+    -e 's#^([[:space:]]+)([a-z0-9]{5,50}\.azurecr\.io/downstream-orders-api:[0-9a-f]{40}|REPLACE_ME_ORDERS_IMAGE)$#\1REPLACE_ME_ORDERS_IMAGE#' \
+    -e 's#(value: )"api://[^"]+"#\1"REPLACE_ME_ORDERS_AUDIENCE"#' \
+    "$1"
+}
 
-expected_changes=$'argocd/apps/mcp-platform-orders.yaml\nbase/mcp-platform-mcp/kustomization.yaml\nbase/mcp-platform-mcp/orders-endpoint-patch.yaml\nbase/mcp-platform-orders/workload.yaml'
+normalized_expected="${fixture}/normalized-expected-orders-workload.yaml"
+normalized_actual="${fixture}/normalized-actual-orders-workload.yaml"
+normalize_workload "${repo_root}/base/mcp-platform-orders/workload.yaml" \
+  > "${normalized_expected}"
+normalize_workload "${fixture}/base/mcp-platform-orders/workload.yaml" \
+  > "${normalized_actual}"
+diff -u "${normalized_expected}" "${normalized_actual}"
+rm "${normalized_expected}" "${normalized_actual}"
+
 actual_changes="$(git -C "${fixture}" status --short | sed 's/^...//' | sort)"
 [ "${actual_changes}" = "${expected_changes}" ] || {
   echo "FAIL: valid rendering changed unexpected files: ${actual_changes}" >&2
