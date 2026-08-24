@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: mcp-server
+  namespace: mcp-platform
+spec:
+  template:
+    spec:
+      containers:
+        - name: mcp-server
+          env:
+            - name: DownstreamOrdersApi__BaseUrl
+              value: "https://mcp.internal.consultwithcloud.com"
+            - name: DownstreamOrdersApi__Scope
+              value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/user_impersonation"
+            - name: DownstreamOrdersApi__ApplicationScope
+              value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/.default"

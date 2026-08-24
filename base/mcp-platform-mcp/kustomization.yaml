@@ -9,3 +9,6 @@ resources:
   - certificate.yaml
   - gateway.yaml
   - virtualservice.yaml
+
+patches:
+  - path: orders-endpoint-patch.yaml
