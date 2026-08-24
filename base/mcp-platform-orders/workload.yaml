@@ -30,7 +30,8 @@ spec:
       serviceAccountName: orders-api
       containers:
         - name: orders-api
-          image: REPLACE_ME_ORDERS_IMAGE
+          image: >-
+            REPLACE_ME_ORDERS_IMAGE
           command: ["/bin/sh", "-c"]
           args:
             - |

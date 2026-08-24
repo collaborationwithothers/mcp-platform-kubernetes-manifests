@@ -63,6 +63,16 @@ git -C "${fixture}" commit -qm baseline
 script="${fixture}/scripts/prepare-orders-deployment-files.sh"
 (cd "${fixture}" && run_script apply)
 
+normalized_workload="${fixture}/normalized-orders-workload.yaml"
+sed \
+  -e "s#${image_reference}#REPLACE_ME_ORDERS_IMAGE#" \
+  -e "s#${orders_audience}#REPLACE_ME_ORDERS_AUDIENCE#" \
+  -e "s#${workload_client_id}#REPLACE_ME_ORDERS_CLIENT_ID#" \
+  "${fixture}/base/mcp-platform-orders/workload.yaml" > "${normalized_workload}"
+diff -u "${repo_root}/base/mcp-platform-orders/workload.yaml" \
+  "${normalized_workload}"
+rm "${normalized_workload}"
+
 expected_changes=$'argocd/apps/mcp-platform-orders.yaml\nbase/mcp-platform-mcp/kustomization.yaml\nbase/mcp-platform-mcp/orders-endpoint-patch.yaml\nbase/mcp-platform-orders/workload.yaml'
 actual_changes="$(git -C "${fixture}" status --short | sed 's/^...//' | sort)"
 [ "${actual_changes}" = "${expected_changes}" ] || {
