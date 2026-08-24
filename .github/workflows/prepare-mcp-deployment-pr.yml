@@ -7,6 +7,7 @@ on:
   repository_dispatch:
     types:
       - mcp-server-gitops-promotion-requested
+      - orders-api-gitops-promotion-requested
 
 permissions:
   contents: read
@@ -29,9 +30,12 @@ jobs:
           set -euo pipefail
           bash scripts/test-mcp-deployment-pr.sh
           bash scripts/validate-mcp-private-route.sh
+          bash scripts/test-orders-deployment-pr.sh
 
   prepare-deployment-pr:
-    if: github.event_name == 'repository_dispatch'
+    if: >-
+      github.event_name == 'repository_dispatch' &&
+      github.event.action == 'mcp-server-gitops-promotion-requested'
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -163,5 +167,142 @@ jobs:
             --label agent:codex \
             --label needs-live-test \
             --title "Deploy MCP workload ${SOURCE_COMMIT}" \
+            --body "${body}")"
+          echo "Deployment PR: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"
+
+  prepare-orders-deployment-pr:
+    if: >-
+      github.event_name == 'repository_dispatch' &&
+      github.event.action == 'orders-api-gitops-promotion-requested'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    concurrency:
+      group: orders-api-deployment-pr
+      cancel-in-progress: false
+    env:
+      IMAGE_REFERENCE: ${{ github.event.client_payload.image_reference }}
+      WORKLOAD_IDENTITY_CLIENT_ID: >-
+        ${{ github.event.client_payload.workload_identity_client_id }}
+      MANAGED_ISTIO_REVISION: >-
+        ${{ github.event.client_payload.managed_istio_revision }}
+      ORDERS_AUDIENCE: ${{ github.event.client_payload.orders_audience }}
+      DOWNSTREAM_BASE_URL: >-
+        ${{ github.event.client_payload.downstream_base_url }}
+      DOWNSTREAM_SCOPE: ${{ github.event.client_payload.downstream_scope }}
+      DOWNSTREAM_APPLICATION_SCOPE: >-
+        ${{ github.event.client_payload.downstream_application_scope }}
+      SOURCE_COMMIT: ${{ github.event.client_payload.source_commit }}
+      DEPLOYMENT_ISSUE: ${{ github.event.client_payload.deployment_issue }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Validate Orders deployment PR inputs
+        run: ./scripts/prepare-orders-deployment-files.sh validate-inputs
+
+      - name: Update the Orders GitOps source
+        id: orders-update
+        shell: bash
+        run: |
+          set -euo pipefail
+          branch="codex/issue-183-orders-workload-${SOURCE_COMMIT}"
+          if git ls-remote --exit-code --heads origin \
+            "refs/heads/${branch}" >/dev/null; then
+            git fetch origin "${branch}"
+            git switch --track "origin/${branch}"
+          else
+            git switch -c "${branch}"
+          fi
+
+          ./scripts/prepare-orders-deployment-files.sh apply
+          git diff --check
+
+          if git diff --quiet; then
+            echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email \
+            "41898282+github-actions[bot]@users.noreply.github.com"
+          git add \
+            argocd/apps/mcp-platform-orders.yaml \
+            base/mcp-platform-mcp/kustomization.yaml \
+            base/mcp-platform-mcp/orders-endpoint-patch.yaml \
+            base/mcp-platform-orders/workload.yaml
+          git commit -m "Deploy Orders workload ${SOURCE_COMMIT}"
+          git push --set-upstream origin "${branch}"
+          echo "branch=${branch}" >> "$GITHUB_OUTPUT"
+
+      - name: Open or report the Orders deployment PR
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ steps.orders-update.outputs.branch }}
+        run: |
+          set -euo pipefail
+          existing_pr="$(gh pr list --state open --head "${BRANCH}" \
+            --json url --jq '.[0].url')"
+          if [ -n "${existing_pr}" ]; then
+            echo "Deployment PR: ${existing_pr}" >> "$GITHUB_STEP_SUMMARY"
+            exit 0
+          fi
+
+          size="$(git diff --numstat origin/main...HEAD | awk '
+            { files++; additions += $1; deletions += $2 }
+            END { printf "%d files; %d additions; " \
+              "%d deletions; %d changed lines", files, additions, deletions,
+              additions + deletions }')"
+          body=$'## The concept\n\n'
+          body+=$'Before this PR, Argo CD has no Orders API workload and the '
+          body+=$'MCP pod still calls the Functions endpoint.\n\n'
+          body+=$'After this PR, Argo CD deploys the commit-tagged Orders API '
+          body+=$'with its own workload identity. The MCP pod keeps its existing '
+          body+=$'scopes and calls the private Orders route.\n\n'
+          body+=$'Refs collaborationwithothers/mcp-platform-azure#183.\n\n'
+          body+=$'## Reading order: core files first\n\nCore:\n\n'
+          body+=$'- `base/mcp-platform-orders/workload.yaml` - workload and identity.\n'
+          body+=$'- `base/mcp-platform-mcp/orders-endpoint-patch.yaml` - private downstream target.\n\n'
+          body+=$'Supporting:\n\n'
+          body+=$'- `argocd/apps/mcp-platform-orders.yaml` - Argo CD reconciliation.\n'
+          body+=$'- `base/mcp-platform-mcp/kustomization.yaml` - applies the endpoint patch.\n\n'
+          body+=$'## PR size\n\n'
+          body+=$'Independently verified behavior: generated Orders deployment configuration.\n\n'
+          body+=$'Verification evidence: contract tests and Kustomize rendering.\n\n'
+          body+="Measured size: ${size}"
+          body+=$'\n\nApproved exception justification: N/A\n\n'
+          body+=$'Approved exception link: N/A\n\n## Merge class\n\n'
+          body+=$'- [ ] auto-merge-ok\n- [x] Requires review\n'
+          body+=$'- [x] needs-live-test\n\n## Review summary\n\n'
+          body+=$'Confirm the source commit, separate Orders ServiceAccount, '
+          body+=$'unchanged downstream scopes, private route, and absence of an image pull secret.\n\n'
+          body+=$'AKS workload identity: https://learn.microsoft.com/azure/aks/'
+          body+=$'workload-identity-overview#service-account-labels-and-annotations\n'
+          body+=$'AKS ACR integration: https://learn.microsoft.com/azure/aks/'
+          body+=$'cluster-container-registry-integration\n'
+          body+=$'AKS Istio ingress: https://learn.microsoft.com/azure/aks/'
+          body+=$'istio-deploy-ingress#enable-internal-ingress-gateway\n\n'
+          body+=$'## Checklist\n\n'
+          body+=$'- [ ] Review pass run on Opus 4.8\n'
+          body+=$'- [x] Azure claims verified through Microsoft Learn\n'
+          body+=$'- [x] Docs land in the linked issue stack\n'
+          body+=$'- [x] COMPATIBILITY.md: N/A\n'
+          body+=$'- [x] No secrets or tenant/subscription IDs\n'
+          body+=$'- [x] No terraform apply/destroy\n'
+          body+=$'- [x] No unmeasured figures\n'
+          body+=$'- [x] Read-only branch preflight: N/A\n'
+          body+=$'- [ ] Live-test run link:\n'
+          pr_url="$(gh pr create \
+            --base main \
+            --head "${BRANCH}" \
+            --draft \
+            --label agent:codex \
+            --label needs-live-test \
+            --title "Deploy Orders workload ${SOURCE_COMMIT}" \
             --body "${body}")"
           echo "Deployment PR: ${pr_url}" >> "$GITHUB_STEP_SUMMARY"

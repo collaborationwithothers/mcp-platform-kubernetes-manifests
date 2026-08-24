@@ -13,6 +13,7 @@ downstream_base_url="https://mcp.internal.consultwithcloud.com"
 downstream_scope="${orders_audience}/user_impersonation"
 downstream_application_scope="${orders_audience}/.default"
 deployment_issue="183"
+workflow="${repo_root}/.github/workflows/prepare-mcp-deployment-pr.yml"
 
 run_script() {
   env \
@@ -51,6 +52,33 @@ expect_rejected downstream_base_url http://mcp.internal.consultwithcloud.com "do
 expect_rejected downstream_scope api://other/user_impersonation "downstream_scope must name orders_audience"
 expect_rejected downstream_application_scope api://other/.default "downstream_application_scope must name orders_audience"
 expect_rejected deployment_issue 184 "deployment_issue must be 183"
+
+for required in \
+  'orders-api-gitops-promotion-requested' \
+  "github.event.action == 'mcp-server-gitops-promotion-requested'" \
+  "github.event.action == 'orders-api-gitops-promotion-requested'" \
+  'bash scripts/test-orders-deployment-pr.sh' \
+  './scripts/prepare-orders-deployment-files.sh validate-inputs' \
+  './scripts/prepare-orders-deployment-files.sh apply' \
+  'codex/issue-183-orders-workload-' \
+  'base/mcp-platform-orders/workload.yaml' \
+  'base/mcp-platform-mcp/orders-endpoint-patch.yaml' \
+  'mcp-platform-azure#183'; do
+  grep -Fq -- "${required}" "${workflow}" || {
+    echo "FAIL: receiver workflow is missing ${required}." >&2
+    exit 1
+  }
+done
+validation_line="$(grep -n -F -- 'prepare-orders-deployment-files.sh validate-inputs' "${workflow}" | cut -d: -f1)"
+branch_line="$(grep -n -F -- 'codex/issue-183-orders-workload-' "${workflow}" | cut -d: -f1)"
+if [ "${validation_line}" -ge "${branch_line}" ]; then
+  echo "FAIL: Orders inputs must be validated before changing a branch." >&2
+  exit 1
+fi
+if grep -Eq 'TENANT_ID:.*client_payload|SUBSCRIPTION_ID:.*client_payload' "${workflow}"; then
+  echo "FAIL: receiver workflow must not accept tenant or subscription IDs." >&2
+  exit 1
+fi
 
 fixture="$(mktemp -d)"
 trap 'rm -rf "${fixture}"' EXIT
