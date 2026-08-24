@@ -112,6 +112,22 @@ application settings before changing a branch. It then runs
 `prepare-mcp-deployment-files.sh`, which renders the checked-in templates and
 opens a draft deployment PR. The workflow does not deploy to AKS.
 
+## Orders API token audience
+
+The MCP server requests an Orders token with the Orders Application ID URI as
+the scope prefix. Microsoft Entra puts the API application's client ID in the
+`aud` (audience) claim of a v2 access token. This claim identifies the API for
+which the token was issued. The Orders API must validate that client ID, not
+the Application ID URI used to request the token.
+
+The Orders promotion renderer accepts only the governed
+`api://<application-client-id>` URI form. It keeps that URI in the MCP scopes
+and configures `Authentication__Audience` with the client ID alone. This keeps
+the token request and runtime validation values distinct. See Microsoft's
+[claims validation guidance](https://learn.microsoft.com/entra/identity-platform/claims-validation#validate-the-audience)
+and
+[application registration guidance](https://learn.microsoft.com/entra/identity-platform/security-best-practices-for-app-registration#application-id-uri-also-known-as-identifier-uri).
+
 ## Promote the placeholder workload
 
 Run **Deploy AKS platform** with `bootstrap`, then run **Build AKS placeholder

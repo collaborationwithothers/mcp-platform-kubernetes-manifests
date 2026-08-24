@@ -8,7 +8,8 @@ source_commit="aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
 image_reference="example.azurecr.io/downstream-orders-api:${source_commit}"
 workload_client_id="11111111-1111-4111-8111-111111111111"
 istio_revision="asm-1-29"
-orders_audience="api://orders-api"
+orders_audience="api://22222222-2222-4222-8222-222222222222"
+orders_token_audience="${orders_audience#api://}"
 downstream_base_url="https://mcp.internal.consultwithcloud.com"
 downstream_scope="${orders_audience}/user_impersonation"
 downstream_application_scope="${orders_audience}/.default"
@@ -47,7 +48,7 @@ expect_rejected source_commit bad "source_commit must be a 40-character lowercas
 expect_rejected image_reference example.azurecr.io/other:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa "commit-tagged downstream-orders-api ACR image"
 expect_rejected workload_client_id not-a-uuid "workload_identity_client_id must be a UUID"
 expect_rejected istio_revision stable "managed_istio_revision must match asm-X-Y"
-expect_rejected orders_audience https://orders.example.test "orders_audience must be an api URI"
+expect_rejected orders_audience api://orders-api "orders_audience must be api:// followed by an application client ID UUID"
 expect_rejected downstream_base_url http://mcp.internal.consultwithcloud.com "downstream_base_url must be an HTTPS origin"
 expect_rejected downstream_scope api://other/user_impersonation "downstream_scope must name orders_audience"
 expect_rejected downstream_application_scope api://other/.default "downstream_application_scope must name orders_audience"
@@ -104,7 +105,7 @@ normalize_workload() {
   sed -E \
     -e 's#(azure.workload.identity/client-id: )"[^"]+"#\1"REPLACE_ME_ORDERS_CLIENT_ID"#' \
     -e 's#^([[:space:]]+)([a-z0-9]{5,50}\.azurecr\.io/downstream-orders-api:[0-9a-f]{40}|REPLACE_ME_ORDERS_IMAGE)$#\1REPLACE_ME_ORDERS_IMAGE#' \
-    -e 's#(value: )"api://[^"]+"#\1"REPLACE_ME_ORDERS_AUDIENCE"#' \
+    -e 's#(value: )"[0-9A-Fa-f-]{36}"#\1"REPLACE_ME_ORDERS_TOKEN_AUDIENCE"#' \
     "$1"
 }
 
@@ -140,7 +141,11 @@ for required in \
   }
 done
 grep -Fq -- "${image_reference}" <<< "${rendered_orders}"
-grep -Fq -- "${orders_audience}" <<< "${rendered_orders}"
+grep -Fq -- "value: ${orders_token_audience}" <<< "${rendered_orders}"
+if grep -Fq -- "value: ${orders_audience}" <<< "${rendered_orders}"; then
+  echo "FAIL: Orders must validate the v2 token audience, not the resource URI." >&2
+  exit 1
+fi
 grep -Fq -- "${workload_client_id}" <<< "${rendered_orders}"
 if grep -Fq 'imagePullSecrets:' <<< "${rendered_orders}"; then
   echo "FAIL: Orders must pull through AcrPull, not an image pull secret." >&2
