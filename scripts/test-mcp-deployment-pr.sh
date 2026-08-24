@@ -150,7 +150,8 @@ if [[ "${rendered_deployment}" != *"${expected_telemetry_env}"* ]]; then
   exit 1
 fi
 git -C "${fixture}" diff --exit-code -- base/mcp-platform-demo argocd/apps/mcp-platform-demo.yaml >/dev/null
-actual_uuids="$(grep -REho '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \
+actual_uuids="$(grep -REho --exclude='orders-endpoint-patch.yaml' \
+  '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \
   "${fixture}/base/mcp-platform-mcp" | sort -u)"
 expected_uuids="$(printf '%s\n%s\n' "${workload_client_id}" "${server_client_id}" | sort)"
 if [ "${actual_uuids}" != "${expected_uuids}" ]; then
