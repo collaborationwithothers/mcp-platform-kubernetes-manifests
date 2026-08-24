@@ -88,6 +88,15 @@ git -C "${fixture}" config user.name test
 git -C "${fixture}" config user.email test@example.invalid
 git -C "${fixture}" add .
 git -C "${fixture}" commit -qm baseline
+expected_changes=$'base/mcp-platform-mcp/orders-endpoint-patch.yaml\nbase/mcp-platform-orders/workload.yaml'
+if [ ! -f "${fixture}/argocd/apps/mcp-platform-orders.yaml" ]; then
+  expected_changes+=$'\nargocd/apps/mcp-platform-orders.yaml'
+fi
+if ! grep -Fq -- 'orders-endpoint-patch.yaml' \
+  "${fixture}/base/mcp-platform-mcp/kustomization.yaml"; then
+  expected_changes+=$'\nbase/mcp-platform-mcp/kustomization.yaml'
+fi
+expected_changes="$(sort <<< "${expected_changes}")"
 script="${fixture}/scripts/prepare-orders-deployment-files.sh"
 (cd "${fixture}" && run_script apply)
 
@@ -108,7 +117,6 @@ normalize_workload "${fixture}/base/mcp-platform-orders/workload.yaml" \
 diff -u "${normalized_expected}" "${normalized_actual}"
 rm "${normalized_expected}" "${normalized_actual}"
 
-expected_changes=$'argocd/apps/mcp-platform-orders.yaml\nbase/mcp-platform-mcp/kustomization.yaml\nbase/mcp-platform-mcp/orders-endpoint-patch.yaml\nbase/mcp-platform-orders/workload.yaml'
 actual_changes="$(git -C "${fixture}" status --short | sed 's/^...//' | sort)"
 [ "${actual_changes}" = "${expected_changes}" ] || {
   echo "FAIL: valid rendering changed unexpected files: ${actual_changes}" >&2
