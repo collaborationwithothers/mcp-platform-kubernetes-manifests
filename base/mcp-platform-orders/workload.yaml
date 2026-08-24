@@ -4,7 +4,7 @@ metadata:
   name: orders-api
   namespace: mcp-platform
   annotations:
-    azure.workload.identity/client-id: "REPLACE_ME_ORDERS_CLIENT_ID"
+    azure.workload.identity/client-id: "0015e69d-7103-471f-a57f-c6634bbdf3a8"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -31,7 +31,7 @@ spec:
       containers:
         - name: orders-api
           image: >-
-            REPLACE_ME_ORDERS_IMAGE
+            acrmcpaksplatform.azurecr.io/downstream-orders-api:f9f62e8164a24a4d24b43a2fb7de511d9245400a
           command: ["/bin/sh", "-c"]
           args:
             - |
@@ -42,7 +42,7 @@ spec:
               exec dotnet DownstreamOrdersApi.dll
           env:
             - name: Authentication__Audience
-              value: "REPLACE_ME_ORDERS_AUDIENCE"
+              value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a"
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
