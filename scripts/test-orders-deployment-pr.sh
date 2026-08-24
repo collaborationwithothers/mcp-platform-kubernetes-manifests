@@ -91,15 +91,22 @@ git -C "${fixture}" commit -qm baseline
 script="${fixture}/scripts/prepare-orders-deployment-files.sh"
 (cd "${fixture}" && run_script apply)
 
-normalized_workload="${fixture}/normalized-orders-workload.yaml"
-sed \
-  -e "s#${image_reference}#REPLACE_ME_ORDERS_IMAGE#" \
-  -e "s#${orders_audience}#REPLACE_ME_ORDERS_AUDIENCE#" \
-  -e "s#${workload_client_id}#REPLACE_ME_ORDERS_CLIENT_ID#" \
-  "${fixture}/base/mcp-platform-orders/workload.yaml" > "${normalized_workload}"
-diff -u "${repo_root}/base/mcp-platform-orders/workload.yaml" \
-  "${normalized_workload}"
-rm "${normalized_workload}"
+normalize_workload() {
+  sed -E \
+    -e 's#(azure.workload.identity/client-id: )"[^"]+"#\1"REPLACE_ME_ORDERS_CLIENT_ID"#' \
+    -e 's#^([[:space:]]+)([a-z0-9]{5,50}\.azurecr\.io/downstream-orders-api:[0-9a-f]{40}|REPLACE_ME_ORDERS_IMAGE)$#\1REPLACE_ME_ORDERS_IMAGE#' \
+    -e 's#(value: )"api://[^"]+"#\1"REPLACE_ME_ORDERS_AUDIENCE"#' \
+    "$1"
+}
+
+normalized_expected="${fixture}/normalized-expected-orders-workload.yaml"
+normalized_actual="${fixture}/normalized-actual-orders-workload.yaml"
+normalize_workload "${repo_root}/base/mcp-platform-orders/workload.yaml" \
+  > "${normalized_expected}"
+normalize_workload "${fixture}/base/mcp-platform-orders/workload.yaml" \
+  > "${normalized_actual}"
+diff -u "${normalized_expected}" "${normalized_actual}"
+rm "${normalized_expected}" "${normalized_actual}"
 
 expected_changes=$'argocd/apps/mcp-platform-orders.yaml\nbase/mcp-platform-mcp/kustomization.yaml\nbase/mcp-platform-mcp/orders-endpoint-patch.yaml\nbase/mcp-platform-orders/workload.yaml'
 actual_changes="$(git -C "${fixture}" status --short | sed 's/^...//' | sort)"
