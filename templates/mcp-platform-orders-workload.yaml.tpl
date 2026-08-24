@@ -42,7 +42,7 @@ spec:
               exec dotnet DownstreamOrdersApi.dll
           env:
             - name: Authentication__Audience
-              value: "@@ORDERS_AUDIENCE@@"
+              value: "@@ORDERS_TOKEN_AUDIENCE@@"
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:
