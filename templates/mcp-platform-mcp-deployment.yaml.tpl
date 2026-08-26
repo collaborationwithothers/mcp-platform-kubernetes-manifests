@@ -44,6 +44,10 @@ spec:
               value: "@@DOWNSTREAM_SCOPE@@"
             - name: DownstreamOrdersApi__ApplicationScope
               value: "@@DOWNSTREAM_APPLICATION_SCOPE@@"
+            - name: OTEL_TRACES_SAMPLER
+              value: "microsoft.fixed_percentage"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "1.0"
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:

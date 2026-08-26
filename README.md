@@ -101,6 +101,14 @@ with its deployment identity, then creates the Secret before Argo CD reconciles
 the Deployment. The pod does not call Azure Resource Manager. Its workload
 identity authenticates telemetry ingestion.
 
+The MCP and Orders demo workloads retain every trace with Azure Monitor's
+fixed-percentage sampler set to `1.0`. This makes the live gate's MCP dependency
+and Orders request correlation deterministic. It also increases telemetry
+ingestion compared with the distro's default rate-limited sampling, so a
+higher-volume deployment should choose a rate that matches its own cost and
+diagnostic requirements. See the
+[Azure Monitor sampling configuration](https://learn.microsoft.com/azure/azure-monitor/app/opentelemetry-configuration#enable-sampling).
+
 The MCP Deployment has one replica and uses a no-surge rolling update. It
 replaces the sole replica before scheduling the next one, so image promotion
 does not need spare node capacity. MCP is briefly unavailable while the

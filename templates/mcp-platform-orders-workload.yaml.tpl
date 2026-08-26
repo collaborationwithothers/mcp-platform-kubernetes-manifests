@@ -43,6 +43,10 @@ spec:
           env:
             - name: Authentication__Audience
               value: "@@ORDERS_TOKEN_AUDIENCE@@"
+            - name: OTEL_TRACES_SAMPLER
+              value: "microsoft.fixed_percentage"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "1.0"
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:

@@ -149,6 +149,11 @@ if [[ "${rendered_deployment}" != *"${expected_telemetry_env}"* ]]; then
   echo "The rendered MCP deployment must read telemetry configuration from the live-only Secret." >&2
   exit 1
 fi
+expected_sampling_env=$'        - name: OTEL_TRACES_SAMPLER\n          value: microsoft.fixed_percentage\n        - name: OTEL_TRACES_SAMPLER_ARG\n          value: "1.0"'
+if [[ "${rendered_deployment}" != *"${expected_sampling_env}"* ]]; then
+  echo "The rendered MCP deployment must retain every trace for live correlation." >&2
+  exit 1
+fi
 git -C "${fixture}" diff --exit-code -- base/mcp-platform-demo argocd/apps/mcp-platform-demo.yaml >/dev/null
 actual_uuids="$(grep -REho --exclude='orders-endpoint-patch.yaml' \
   '[0-9a-f]{8}(-[0-9a-f]{4}){3}-[0-9a-f]{12}' \

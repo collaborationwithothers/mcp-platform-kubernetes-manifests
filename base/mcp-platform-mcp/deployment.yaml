@@ -44,6 +44,10 @@ spec:
               value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/user_impersonation"
             - name: DownstreamOrdersApi__ApplicationScope
               value: "api://5693176e-0afd-4461-9cbf-b5d47bb9264a/.default"
+            - name: OTEL_TRACES_SAMPLER
+              value: "microsoft.fixed_percentage"
+            - name: OTEL_TRACES_SAMPLER_ARG
+              value: "1.0"
             - name: APPLICATIONINSIGHTS_CONNECTION_STRING
               valueFrom:
                 secretKeyRef:

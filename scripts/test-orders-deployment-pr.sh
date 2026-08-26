@@ -140,6 +140,11 @@ for required in \
     exit 1
   }
 done
+expected_sampling_env=$'        - name: OTEL_TRACES_SAMPLER\n          value: microsoft.fixed_percentage\n        - name: OTEL_TRACES_SAMPLER_ARG\n          value: "1.0"'
+if [[ "${rendered_orders}" != *"${expected_sampling_env}"* ]]; then
+  echo "FAIL: rendered Orders deployment must retain every trace for live correlation." >&2
+  exit 1
+fi
 grep -Fq -- "${image_reference}" <<< "${rendered_orders}"
 grep -Fq -- "value: ${orders_token_audience}" <<< "${rendered_orders}"
 if grep -Fq -- "value: ${orders_audience}" <<< "${rendered_orders}"; then
